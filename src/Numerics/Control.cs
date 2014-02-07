@@ -60,11 +60,12 @@ namespace MathNet.Numerics
             MaxToStringRows = 8;
 
             // Parallelization & Threading
-            _numberOfThreads = Environment.ProcessorCount;
+            _numberOfThreads = 1;
             DisableParallelization = _numberOfThreads < 2;
             _blockSize = 512;
             _parallelizeOrder = 64;
             _parallelizeElements = 300;
+            UseSingleThread();
 
             // Linear Algebra Provider
             LinearAlgebraProvider = new ManagedLinearAlgebraProvider();
@@ -128,7 +129,7 @@ namespace MathNet.Numerics
         /// <summary>
         /// Gets or sets a value indicating whether parallelization shall be disabled globally.
         /// </summary>
-        public static bool DisableParallelization { get; set; }
+        public static bool DisableParallelization { get; private set; }
 
         /// <summary>
         /// Gets or sets the linear algebra provider. Consider to use UseNativeMKL or UseManaged instead.
@@ -154,7 +155,6 @@ namespace MathNet.Numerics
         public static int NumberOfParallelWorkerThreads
         {
             get { return _numberOfThreads; }
-            set { _numberOfThreads = Math.Max(1, Math.Min(1024, value)); }
         }
 
         /// <summary>
