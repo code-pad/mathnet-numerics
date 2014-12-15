@@ -62,10 +62,13 @@ namespace MathNet.Numerics
             _parallelizeOrder = 64;
             _parallelizeElements = 300;
             TaskScheduler = TaskScheduler.Default;
-            UseSingleThread();
 
             // Linear Algebra Provider
             LinearAlgebraProvider = new ManagedLinearAlgebraProvider();
+
+            // Use a single thread -- Sunny
+            UseSingleThread();
+
 #if !PORTABLE && NATIVEMKL
             try
             {
