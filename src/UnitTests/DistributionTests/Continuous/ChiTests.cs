@@ -4,7 +4,7 @@
 // http://github.com/mathnet/mathnet-numerics
 // http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2014 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -42,15 +42,6 @@ namespace MathNet.Numerics.UnitTests.DistributionTests.Continuous
     public class ChiTests
     {
         /// <summary>
-        /// Set-up parameters.
-        /// </summary>
-        [SetUp]
-        public void SetUp()
-        {
-            Control.CheckDistributionParameters = true;
-        }
-
-        /// <summary>
         /// Can create chi.
         /// </summary>
         /// <param name="dof">Degrees of freedom</param>
@@ -74,7 +65,7 @@ namespace MathNet.Numerics.UnitTests.DistributionTests.Continuous
         [TestCase(Double.NaN)]
         public void ChiCreateFailsWithBadParameters(double dof)
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => new Chi(dof));
+            Assert.That(() => new Chi(dof), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -85,35 +76,6 @@ namespace MathNet.Numerics.UnitTests.DistributionTests.Continuous
         {
             var n = new Chi(1.0);
             Assert.AreEqual("Chi(k = 1)", n.ToString());
-        }
-
-        /// <summary>
-        /// Can set degrees of freedom.
-        /// </summary>
-        /// <param name="dof">Degrees of freedom.</param>
-        [TestCase(0.1)]
-        [TestCase(1.0)]
-        [TestCase(10.0)]
-        [TestCase(Double.PositiveInfinity)]
-        public void CanSetDoF(double dof)
-        {
-            new Chi(1.0)
-            {
-                DegreesOfFreedom = dof
-            };
-        }
-
-        /// <summary>
-        /// Set Degrees of freedom fails with non-positive value.
-        /// </summary>
-        /// <param name="dof">Degrees of freedom.</param>
-        [TestCase(-1.0)]
-        [TestCase(-0.0)]
-        [TestCase(0.0)]
-        public void SetDofFailsWithNonPositiveDoF(double dof)
-        {
-            var n = new Chi(1.0);
-            Assert.Throws<ArgumentOutOfRangeException>(() => n.DegreesOfFreedom = dof);
         }
 
         /// <summary>
@@ -301,7 +263,7 @@ namespace MathNet.Numerics.UnitTests.DistributionTests.Continuous
         {
             var n = new Chi(1.0);
             var ied = n.Samples();
-            ied.Take(5).ToArray();
+            GC.KeepAlive(ied.Take(5).ToArray());
         }
 
         /// <summary>

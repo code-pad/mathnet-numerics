@@ -66,7 +66,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         public void CanMultiplyWithVector()
         {
             var matrix = TestMatrices["Singular3x3"];
-            var x = new DenseVector(new[] { 1.0, 2.0, 3.0 });
+            var x = Vector<double>.Build.Dense(new[] { 1.0, 2.0, 3.0 });
             var y = matrix*x;
 
             Assert.AreEqual(matrix.RowCount, y.Count);
@@ -86,8 +86,8 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         public void CanMultiplyWithVectorIntoResult()
         {
             var matrix = TestMatrices["Singular3x3"];
-            var x = new DenseVector(new[] { 1.0, 2.0, 3.0 });
-            var y = new DenseVector(3);
+            var x = Vector<double>.Build.Dense(new[] { 1.0, 2.0, 3.0 });
+            var y = Vector<double>.Build.Dense(3);
             matrix.Multiply(x, y);
 
             for (var i = 0; i < matrix.RowCount; i++)
@@ -105,13 +105,13 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         public void CanMultiplyWithVectorIntoResultWhenUpdatingInputArgument()
         {
             var matrix = TestMatrices["Singular3x3"];
-            var x = new DenseVector(new[] { 1.0, 2.0, 3.0 });
+            var x = Vector<double>.Build.Dense(new[] { 1.0, 2.0, 3.0 });
             var y = x;
             matrix.Multiply(x, x);
 
             Assert.AreSame(y, x);
 
-            y = new DenseVector(new[] { 1.0, 2.0, 3.0 });
+            y = Vector<double>.Build.Dense(new[] { 1.0, 2.0, 3.0 });
             for (var i = 0; i < matrix.RowCount; i++)
             {
                 var ar = matrix.Row(i);
@@ -127,9 +127,9 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         public void MultiplyWithVectorIntoLargerResultThrowsArgumentException()
         {
             var matrix = TestMatrices["Singular3x3"];
-            var x = new DenseVector(new[] { 1.0, 2.0, 3.0 });
-            Vector<double> y = new DenseVector(4);
-            Assert.Throws<ArgumentException>(() => matrix.Multiply(x, y));
+            var x = Vector<double>.Build.Dense(new[] { 1.0, 2.0, 3.0 });
+            Vector<double> y = Vector<double>.Build.Dense(4);
+            Assert.That(() => matrix.Multiply(x, y), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -204,7 +204,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         {
             var matrix = TestMatrices["Singular3x3"];
             var result = CreateMatrix(matrix.RowCount + 1, matrix.ColumnCount);
-            Assert.Throws<ArgumentException>(() => matrix.Multiply(2.3, result));
+            Assert.That(() => matrix.Multiply(2.3, result), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -215,7 +215,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         {
             var matrix = TestMatrices["Singular3x3"];
             var result = CreateMatrix(matrix.RowCount, matrix.ColumnCount + 1);
-            Assert.Throws<ArgumentException>(() => matrix.Multiply(2.3, result));
+            Assert.That(() => matrix.Multiply(2.3, result), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -249,7 +249,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         {
             var matrix = TestMatrices["Singular3x3"];
             var other = TestMatrices["Tall3x2"];
-            Assert.Throws<ArgumentOutOfRangeException>(() => matrix.Add(other));
+            Assert.That(() => matrix.Add(other), Throws.TypeOf<ArgumentOutOfRangeException>());
         }
 
         /// <summary>
@@ -260,7 +260,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         {
             var matrix = TestMatrices["Singular3x3"];
             var other = TestMatrices["Wide2x3"];
-            Assert.Throws<ArgumentOutOfRangeException>(() => matrix.Add(other));
+            Assert.That(() => matrix.Add(other), Throws.TypeOf<ArgumentOutOfRangeException>());
         }
 
         /// <summary>
@@ -338,7 +338,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         {
             var matrix = TestMatrices["Singular3x3"];
             var other = TestMatrices["Tall3x2"];
-            Assert.Throws<ArgumentOutOfRangeException>(() => matrix.Subtract(other));
+            Assert.That(() => matrix.Subtract(other), Throws.TypeOf<ArgumentOutOfRangeException>());
         }
 
         /// <summary>
@@ -349,7 +349,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         {
             var matrix = TestMatrices["Singular3x3"];
             var other = TestMatrices["Wide2x3"];
-            Assert.Throws<ArgumentOutOfRangeException>(() => matrix.Subtract(other));
+            Assert.That(() => matrix.Subtract(other), Throws.TypeOf<ArgumentOutOfRangeException>());
         }
 
         /// <summary>
@@ -419,7 +419,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
             {
                 for (var j = 0; j < matrixC.ColumnCount; j++)
                 {
-                    AssertHelpers.AlmostEqual(matrixA.Row(i)*matrixB.Column(j), matrixC[i, j], 15);
+                    AssertHelpers.AlmostEqual(matrixA.Row(i)*matrixB.Column(j), matrixC[i, j], 12);
                 }
             }
         }
@@ -445,7 +445,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
             {
                 for (var j = 0; j < matrixC.ColumnCount; j++)
                 {
-                    AssertHelpers.AlmostEqual(matrixA.Row(i)*matrixB.Row(j), matrixC[i, j], 15);
+                    AssertHelpers.AlmostEqual(matrixA.Row(i)*matrixB.Row(j), matrixC[i, j], 12);
                 }
             }
         }
@@ -492,7 +492,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         {
             var matrix = TestMatrices["Singular3x3"];
             var other = TestMatrices["Tall3x2"];
-            Assert.Throws<ArgumentException>(() => matrix.TransposeAndMultiply(other));
+            Assert.That(() => matrix.TransposeAndMultiply(other), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -517,7 +517,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
             {
                 for (var j = 0; j < matrixC.ColumnCount; j++)
                 {
-                    AssertHelpers.AlmostEqual(matrixA.Row(i)*matrixB.Row(j), matrixC[i, j], 15);
+                    AssertHelpers.AlmostEqual(matrixA.Row(i)*matrixB.Row(j), matrixC[i, j], 12);
                 }
             }
         }
@@ -557,7 +557,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
             {
                 for (var j = 0; j < matrixC.ColumnCount; j++)
                 {
-                    AssertHelpers.AlmostEqual(matrixA.Row(i)*matrixB.Column(j), matrixC[i, j], 15);
+                    AssertHelpers.AlmostEqual(matrixA.Row(i)*matrixB.Column(j), matrixC[i, j], 12);
                 }
             }
         }
@@ -569,7 +569,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         public void CanTransposeThisAndMultiplyWithVector()
         {
             var matrix = TestMatrices["Singular3x3"];
-            var x = new DenseVector(new[] { 1.0, 2.0, 3.0 });
+            var x = Vector<double>.Build.Dense(new[] { 1.0, 2.0, 3.0 });
             var y = matrix.TransposeThisAndMultiply(x);
 
             Assert.AreEqual(matrix.ColumnCount, y.Count);
@@ -589,8 +589,8 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         public void CanTransposeThisAndMultiplyWithVectorIntoResult()
         {
             var matrix = TestMatrices["Singular3x3"];
-            var x = new DenseVector(new[] { 1.0, 2.0, 3.0 });
-            var y = new DenseVector(3);
+            var x = Vector<double>.Build.Dense(new[] { 1.0, 2.0, 3.0 });
+            var y = Vector<double>.Build.Dense(3);
             matrix.TransposeThisAndMultiply(x, y);
 
             for (var j = 0; j < matrix.ColumnCount; j++)
@@ -608,13 +608,13 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         public void CanTransposeThisAndMultiplyWithVectorIntoResultWhenUpdatingInputArgument()
         {
             var matrix = TestMatrices["Singular3x3"];
-            var x = new DenseVector(new[] { 1.0, 2.0, 3.0 });
+            var x = Vector<double>.Build.Dense(new[] { 1.0, 2.0, 3.0 });
             var y = x;
             matrix.TransposeThisAndMultiply(x, x);
 
             Assert.AreSame(y, x);
 
-            y = new DenseVector(new[] { 1.0, 2.0, 3.0 });
+            y = Vector<double>.Build.Dense(new[] { 1.0, 2.0, 3.0 });
             for (var j = 0; j < matrix.ColumnCount; j++)
             {
                 var ar = matrix.Column(j);
@@ -630,9 +630,9 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         public void TransposeThisAndMultiplyWithVectorIntoLargerResultThrowsArgumentException()
         {
             var matrix = TestMatrices["Singular3x3"];
-            var x = new DenseVector(new[] { 1.0, 2.0, 3.0 });
-            Vector<double> y = new DenseVector(4);
-            Assert.Throws<ArgumentException>(() => matrix.TransposeThisAndMultiply(x, y));
+            var x = Vector<double>.Build.Dense(new[] { 1.0, 2.0, 3.0 });
+            Vector<double> y = Vector<double>.Build.Dense(4);
+            Assert.That(() => matrix.TransposeThisAndMultiply(x, y), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -669,7 +669,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         {
             var matrix = TestMatrices["Wide2x3"];
             var other = TestMatrices["Singular3x3"];
-            Assert.Throws<ArgumentException>(() => matrix.TransposeThisAndMultiply(other));
+            Assert.That(() => matrix.TransposeThisAndMultiply(other), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -757,7 +757,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         {
             var matrix = TestMatrices["Singular3x3"];
             var target = CreateMatrix(matrix.RowCount + 1, matrix.ColumnCount);
-            Assert.Throws<ArgumentException>(() => matrix.Negate(target));
+            Assert.That(() => matrix.Negate(target), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -768,7 +768,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         {
             var matrix = TestMatrices["Singular3x3"];
             var target = CreateMatrix(matrix.RowCount + 1, matrix.ColumnCount);
-            Assert.Throws<ArgumentException>(() => matrix.Negate(target));
+            Assert.That(() => matrix.Negate(target), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -843,7 +843,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         [Test]
         public void NormalizeColumnsWithWrongParameterThrowsArgumentOutOfRangeException()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => TestMatrices["Square4x4"].NormalizeColumns(-4));
+            Assert.That(() => TestMatrices["Square4x4"].NormalizeColumns(-4), Throws.TypeOf<ArgumentOutOfRangeException>());
         }
 
         /// <summary>
@@ -868,7 +868,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         [Test]
         public void NormalizeRowsWithWrongParameterThrowsArgumentOutOfRangeException()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => TestMatrices["Square4x4"].NormalizeRows(-4));
+            Assert.That(() => TestMatrices["Square4x4"].NormalizeRows(-4), Throws.TypeOf<ArgumentOutOfRangeException>());
         }
 
         /// <summary>
@@ -910,7 +910,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
             var matrix = TestMatrices["Wide2x3"];
             var other = CreateMatrix(matrix.RowCount + 1, matrix.ColumnCount);
             var result = matrix.Clone();
-            Assert.Throws<ArgumentException>(() => matrix.PointwiseMultiply(other, result));
+            Assert.That(() => matrix.PointwiseMultiply(other, result), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -922,7 +922,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
             var matrix = TestMatrices["Wide2x3"];
             var other = matrix.Clone();
             var result = CreateMatrix(matrix.RowCount + 1, matrix.ColumnCount);
-            Assert.Throws<ArgumentException>(() => matrix.PointwiseMultiply(other, result));
+            Assert.That(() => matrix.PointwiseMultiply(other, result), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -962,7 +962,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
             var matrix = TestMatrices["Wide2x3"];
             var other = CreateMatrix(matrix.RowCount + 1, matrix.ColumnCount);
             var result = matrix.Clone();
-            Assert.Throws<ArgumentException>(() => matrix.PointwiseDivide(other, result));
+            Assert.That(() => matrix.PointwiseDivide(other, result), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -974,7 +974,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
             var matrix = TestMatrices["Wide2x3"];
             var other = matrix.Clone();
             var result = CreateMatrix(matrix.RowCount + 1, matrix.ColumnCount);
-            Assert.Throws<ArgumentException>(() => matrix.PointwiseDivide(other, result));
+            Assert.That(() => matrix.PointwiseDivide(other, result), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -985,7 +985,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         [TestCase(-2)]
         public void RandomWithNonPositiveNumberOfRowsThrowsArgumentException(int numberOfRows)
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => Matrix<double>.Build.Random(numberOfRows, 4, new ContinuousUniform()));
+            Assert.That(() => Matrix<double>.Build.Random(numberOfRows, 4, new ContinuousUniform()), Throws.TypeOf<ArgumentOutOfRangeException>());
         }
 
         /// <summary>
@@ -1006,7 +1006,7 @@ namespace MathNet.Numerics.UnitTests.LinearAlgebraTests.Double
         public void TraceOfNonSquareMatrixThrowsArgumentException()
         {
             var matrix = TestMatrices["Wide2x3"];
-            Assert.Throws<ArgumentException>(() => matrix.Trace());
+            Assert.That(() => matrix.Trace(), Throws.ArgumentException);
         }
 
         [Test]

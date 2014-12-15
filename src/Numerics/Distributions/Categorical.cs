@@ -4,7 +4,7 @@
 // http://github.com/mathnet/mathnet-numerics
 // http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2014 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -34,6 +34,7 @@ using System.Linq;
 using MathNet.Numerics.Properties;
 using MathNet.Numerics.Random;
 using MathNet.Numerics.Statistics;
+using MathNet.Numerics.Threading;
 
 namespace MathNet.Numerics.Distributions
 {
@@ -48,12 +49,15 @@ namespace MathNet.Numerics.Distributions
     /// does not have to be normalized and sum to 1. The reason is that some vectors can't be exactly normalized
     /// to sum to 1 in floating point representation.
     /// </remarks>
+    /// <remarks>
+    /// Support: 0..k where k = length(probability mass array)-1
+    /// </remarks>
     public class Categorical : IDiscreteDistribution
     {
         System.Random _random;
 
-        double[] _pmfNormalized;
-        double[] _cdfUnnormalized;
+        readonly double[] _pmfNormalized;
+        readonly double[] _cdfUnnormalized;
 
         /// <summary>
         /// Initializes a new instance of the Categorical class.
@@ -62,9 +66,8 @@ namespace MathNet.Numerics.Distributions
         /// as this is often impossible using floating point arithmetic.</param>
         /// <exception cref="ArgumentException">If any of the probabilities are negative or do not sum to one.</exception>
         public Categorical(double[] probabilityMass)
+            : this(probabilityMass, SystemRandomSource.Default)
         {
-            _random = SystemRandomSource.Default;
-            SetParameters(probabilityMass);
         }
 
         /// <summary>
@@ -76,8 +79,28 @@ namespace MathNet.Numerics.Distributions
         /// <exception cref="ArgumentException">If any of the probabilities are negative or do not sum to one.</exception>
         public Categorical(double[] probabilityMass, System.Random randomSource)
         {
+            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(probabilityMass))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
             _random = randomSource ?? SystemRandomSource.Default;
-            SetParameters(probabilityMass);
+
+            // Extract unnormalized cumulative distribution
+            _cdfUnnormalized = new double[probabilityMass.Length];
+            _cdfUnnormalized[0] = probabilityMass[0];
+            for (int i = 1; i < probabilityMass.Length; i++)
+            {
+                _cdfUnnormalized[i] = _cdfUnnormalized[i - 1] + probabilityMass[i];
+            }
+
+            // Extract normalized probability mass
+            var sum = _cdfUnnormalized[_cdfUnnormalized.Length - 1];
+            _pmfNormalized = new double[probabilityMass.Length];
+            for (int i = 0; i < probabilityMass.Length; i++)
+            {
+                _pmfNormalized[i] = probabilityMass[i]/sum;
+            }
         }
 
         /// <summary>
@@ -103,7 +126,27 @@ namespace MathNet.Numerics.Distributions
             }
 
             _random = SystemRandomSource.Default;
-            SetParameters(p);
+
+            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(p))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            // Extract unnormalized cumulative distribution
+            _cdfUnnormalized = new double[p.Length];
+            _cdfUnnormalized[0] = p[0];
+            for (int i1 = 1; i1 < p.Length; i1++)
+            {
+                _cdfUnnormalized[i1] = _cdfUnnormalized[i1 - 1] + p[i1];
+            }
+
+            // Extract normalized probability mass
+            var sum = _cdfUnnormalized[_cdfUnnormalized.Length - 1];
+            _pmfNormalized = new double[p.Length];
+            for (int i2 = 0; i2 < p.Length; i2++)
+            {
+                _pmfNormalized[i2] = p[i2]/sum;
+            }
         }
 
         /// <summary>
@@ -120,13 +163,13 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         /// <param name="p">An array of nonnegative ratios: this array does not need to be normalized as this is often impossible using floating point arithmetic.</param>
         /// <returns>If any of the probabilities are negative returns <c>false</c>, or if the sum of parameters is 0.0; otherwise <c>true</c></returns>
-        static bool IsValidProbabilityMass(double[] p)
+        public static bool IsValidProbabilityMass(double[] p)
         {
             var sum = 0.0;
             for (int i = 0; i < p.Length; i++)
             {
                 double t = p[i];
-                if (t < 0.0 || Double.IsNaN(t))
+                if (t < 0.0 || double.IsNaN(t))
                 {
                     return false;
                 }
@@ -142,13 +185,13 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         /// <param name="cdf">An array of nonnegative ratios: this array does not need to be normalized as this is often impossible using floating point arithmetic.</param>
         /// <returns>If any of the probabilities are negative returns <c>false</c>, or if the sum of parameters is 0.0; otherwise <c>true</c></returns>
-        static bool IsValidCumulativeDistribution(double[] cdf)
+        public static bool IsValidCumulativeDistribution(double[] cdf)
         {
             var last = 0.0;
             for (int i = 0; i < cdf.Length; i++)
             {
                 double t = cdf[i];
-                if (t < 0.0 || Double.IsNaN(t) || t < last)
+                if (t < 0.0 || double.IsNaN(t) || t < last)
                 {
                     return false;
                 }
@@ -160,43 +203,12 @@ namespace MathNet.Numerics.Distributions
         }
 
         /// <summary>
-        /// Sets the parameters of the distribution after checking their validity.
-        /// </summary>
-        /// <param name="p">An array of nonnegative ratios: this array does not need to be normalized
-        /// as this is often impossible using floating point arithmetic.</param>
-        /// <exception cref="ArgumentOutOfRangeException">When the parameters are out of range.</exception>
-        void SetParameters(double[] p)
-        {
-            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(p))
-            {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
-            }
-
-            // Extract unnormalized cumulative distribution
-            _cdfUnnormalized = new double[p.Length];
-            _cdfUnnormalized[0] = p[0];
-            for (int i = 1; i < p.Length; i++)
-            {
-                _cdfUnnormalized[i] = _cdfUnnormalized[i - 1] + p[i];
-            }
-
-            // Extract normalized probability mass
-            var sum = _cdfUnnormalized[_cdfUnnormalized.Length - 1];
-            _pmfNormalized = new double[p.Length];
-            for (int i = 0; i < p.Length; i++)
-            {
-                _pmfNormalized[i] = p[i]/sum;
-            }
-        }
-
-        /// <summary>
         /// Gets or sets the probability mass vector (non-negative ratios) of the multinomial.
         /// </summary>
         /// <remarks>Sometimes the normalized probability vector cannot be represented exactly in a floating point representation.</remarks>
         public double[] P
         {
             get { return (double[])_pmfNormalized.Clone(); }
-            set { SetParameters(value); }
         }
 
         /// <summary>
@@ -213,7 +225,18 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         public double Mean
         {
-            get { return _pmfNormalized.Mean(); }
+            get
+            {
+                // Mean = E[X] = Sum(x * p(x), x=0..N-1)
+                // where f(x) is the probability mass function, and N is the number of categories.
+                var sum = 0.0;
+                for (int i = 0; i < _pmfNormalized.Length; i++)
+                {
+                    sum += i*_pmfNormalized[i];
+                }
+
+                return sum;
+            }
         }
 
         /// <summary>
@@ -221,7 +244,7 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         public double StdDev
         {
-            get { return _pmfNormalized.StandardDeviation(); }
+            get { return Math.Sqrt(Variance); }
         }
 
         /// <summary>
@@ -229,7 +252,19 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         public double Variance
         {
-            get { return _pmfNormalized.Variance(); }
+            get
+            {
+                // Variance = E[(X-E[X])^2] = E[X^2] - (E[X])^2 = Sum(p(x) * (x - E[X])^2), x=0..N-1)
+                var m = Mean;
+                var sum = 0.0;
+                for (int i = 0; i < _pmfNormalized.Length; i++)
+                {
+                    var r = i - m;
+                    sum += r*r*_pmfNormalized[i];
+                }
+
+                return sum;
+            }
         }
 
         /// <summary>
@@ -237,7 +272,7 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         public double Entropy
         {
-            get { return _pmfNormalized.Sum(p => p*Math.Log(p)); }
+            get { return -_pmfNormalized.Sum(p => p*Math.Log(p)); }
         }
 
         /// <summary>
@@ -277,9 +312,9 @@ namespace MathNet.Numerics.Distributions
         /// <summary>
         /// Gets the median of the distribution.
         /// </summary>
-        public int Median
+        public double Median
         {
-            get { return (int) _pmfNormalized.Median(); }
+            get { return InverseCumulativeDistribution(0.5); }
         }
 
         /// <summary>
@@ -339,7 +374,7 @@ namespace MathNet.Numerics.Distributions
                 return 1.0;
             }
 
-            return _cdfUnnormalized[(int) Math.Floor(x)]/_cdfUnnormalized[_cdfUnnormalized.Length - 1];
+            return _cdfUnnormalized[(int)Math.Floor(x)]/_cdfUnnormalized[_cdfUnnormalized.Length - 1];
         }
 
         /// <summary>
@@ -350,13 +385,112 @@ namespace MathNet.Numerics.Distributions
         /// <returns>An integer between 0 and the size of the categorical (exclusive), that corresponds to the inverse CDF for the given probability.</returns>
         public int InverseCumulativeDistribution(double probability)
         {
-            if (probability < 0.0 || probability > 1.0 || Double.IsNaN(probability))
+            if (probability < 0.0 || probability > 1.0 || double.IsNaN(probability))
             {
                 throw new ArgumentOutOfRangeException("probability");
             }
 
-            var denormalizedProbability = probability * _cdfUnnormalized[_cdfUnnormalized.Length - 1];
+            var denormalizedProbability = probability*_cdfUnnormalized[_cdfUnnormalized.Length - 1];
             int idx = Array.BinarySearch(_cdfUnnormalized, denormalizedProbability);
+            if (idx < 0)
+            {
+                idx = ~idx;
+            }
+
+            return idx;
+        }
+
+        /// <summary>
+        /// Computes the probability mass (PMF) at k, i.e. P(X = k).
+        /// </summary>
+        /// <param name="k">The location in the domain where we want to evaluate the probability mass function.</param>
+        /// <param name="probabilityMass">An array of nonnegative ratios: this array does not need to be normalized
+        /// as this is often impossible using floating point arithmetic.</param>
+        /// <returns>the probability mass at location <paramref name="k"/>.</returns>
+        public static double PMF(double[] probabilityMass, int k)
+        {
+            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(probabilityMass))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            if (k < 0)
+            {
+                return 0.0;
+            }
+
+            if (k >= probabilityMass.Length)
+            {
+                return 0.0;
+            }
+
+            return probabilityMass[k]/probabilityMass.Sum();
+        }
+
+        /// <summary>
+        /// Computes the log probability mass (lnPMF) at k, i.e. ln(P(X = k)).
+        /// </summary>
+        /// <param name="k">The location in the domain where we want to evaluate the log probability mass function.</param>
+        /// <param name="probabilityMass">An array of nonnegative ratios: this array does not need to be normalized
+        /// as this is often impossible using floating point arithmetic.</param>
+        /// <returns>the log probability mass at location <paramref name="k"/>.</returns>
+        public static double PMFLn(double[] probabilityMass, int k)
+        {
+            return Math.Log(PMF(probabilityMass, k));
+        }
+
+        /// <summary>
+        /// Computes the cumulative distribution (CDF) of the distribution at x, i.e. P(X ≤ x).
+        /// </summary>
+        /// <param name="x">The location at which to compute the cumulative distribution function.</param>
+        /// <param name="probabilityMass">An array of nonnegative ratios: this array does not need to be normalized
+        /// as this is often impossible using floating point arithmetic.</param>
+        /// <returns>the cumulative distribution at location <paramref name="x"/>.</returns>
+        /// <seealso cref="CumulativeDistribution"/>
+        public static double CDF(double[] probabilityMass, double x)
+        {
+            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(probabilityMass))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            if (x < 0.0)
+            {
+                return 0.0;
+            }
+
+            if (x >= probabilityMass.Length)
+            {
+                return 1.0;
+            }
+
+            var cdfUnnormalized = ProbabilityMassToCumulativeDistribution(probabilityMass);
+            return cdfUnnormalized[(int)Math.Floor(x)]/cdfUnnormalized[cdfUnnormalized.Length - 1];
+        }
+
+        /// <summary>
+        /// Computes the inverse of the cumulative distribution function (InvCDF) for the distribution
+        /// at the given probability.
+        /// </summary>
+        /// <param name="probabilityMass">An array of nonnegative ratios: this array does not need to be normalized
+        /// as this is often impossible using floating point arithmetic.</param>
+        /// <param name="probability">A real number between 0 and 1.</param>
+        /// <returns>An integer between 0 and the size of the categorical (exclusive), that corresponds to the inverse CDF for the given probability.</returns>
+        public static int InvCDF(double[] probabilityMass, double probability)
+        {
+            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(probabilityMass))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            if (probability < 0.0 || probability > 1.0 || double.IsNaN(probability))
+            {
+                throw new ArgumentOutOfRangeException("probability");
+            }
+
+            var cdfUnnormalized = ProbabilityMassToCumulativeDistribution(probabilityMass);
+            var denormalizedProbability = probability*cdfUnnormalized[cdfUnnormalized.Length - 1];
+            int idx = Array.BinarySearch(cdfUnnormalized, denormalizedProbability);
             if (idx < 0)
             {
                 idx = ~idx;
@@ -372,19 +506,19 @@ namespace MathNet.Numerics.Distributions
         /// <param name="cdfUnnormalized">An array corresponding to a CDF for a categorical distribution. Not assumed to be normalized.</param>
         /// <param name="probability">A real number between 0 and 1.</param>
         /// <returns>An integer between 0 and the size of the categorical (exclusive), that corresponds to the inverse CDF for the given probability.</returns>
-        public static int InverseCumulativeDistribution(double[] cdfUnnormalized, double probability)
+        public static int InvCDFWithCumulativeDistribution(double[] cdfUnnormalized, double probability)
         {
             if (Control.CheckDistributionParameters && !IsValidCumulativeDistribution(cdfUnnormalized))
             {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
 
-            if (probability < 0.0 || probability > 1.0 || Double.IsNaN(probability))
+            if (probability < 0.0 || probability > 1.0 || double.IsNaN(probability))
             {
                 throw new ArgumentOutOfRangeException("probability");
             }
 
-            var denormalizedProbability = probability * cdfUnnormalized[cdfUnnormalized.Length - 1];
+            var denormalizedProbability = probability*cdfUnnormalized[cdfUnnormalized.Length - 1];
             int idx = Array.BinarySearch(cdfUnnormalized, denormalizedProbability);
             if (idx < 0)
             {
@@ -398,16 +532,16 @@ namespace MathNet.Numerics.Distributions
         /// Computes the cumulative distribution function. This method performs no parameter checking.
         /// If the probability mass was normalized, the resulting cumulative distribution is normalized as well (up to numerical errors).
         /// </summary>
-        /// <param name="pmfUnnormalized">An array of nonnegative ratios: this array does not need to be normalized
+        /// <param name="probabilityMass">An array of nonnegative ratios: this array does not need to be normalized
         /// as this is often impossible using floating point arithmetic.</param>
         /// <returns>An array representing the unnormalized cumulative distribution function.</returns>
-        internal static double[] ProbabilityMassToCumulativeDistribution(double[] pmfUnnormalized)
+        internal static double[] ProbabilityMassToCumulativeDistribution(double[] probabilityMass)
         {
-            var cdfUnnormalized = new double[pmfUnnormalized.Length];
-            cdfUnnormalized[0] = pmfUnnormalized[0];
-            for (int i = 1; i < pmfUnnormalized.Length; i++)
+            var cdfUnnormalized = new double[probabilityMass.Length];
+            cdfUnnormalized[0] = probabilityMass[0];
+            for (int i = 1; i < probabilityMass.Length; i++)
             {
-                cdfUnnormalized[i] = cdfUnnormalized[i - 1] + pmfUnnormalized[i];
+                cdfUnnormalized[i] = cdfUnnormalized[i - 1] + probabilityMass[i];
             }
 
             return cdfUnnormalized;
@@ -422,15 +556,63 @@ namespace MathNet.Numerics.Distributions
         internal static int SampleUnchecked(System.Random rnd, double[] cdfUnnormalized)
         {
             // TODO : use binary search to speed up this procedure.
-            var u = rnd.NextDouble()*cdfUnnormalized[cdfUnnormalized.Length - 1];
-
+            double u = rnd.NextDouble()*cdfUnnormalized[cdfUnnormalized.Length - 1];
             var idx = 0;
+
+            if (u == 0.0d)
+            {
+                // skip zero-probability categories
+                while (0.0d == cdfUnnormalized[idx])
+                {
+                    idx++;
+                }
+            }
+
             while (u > cdfUnnormalized[idx])
             {
                 idx++;
             }
 
             return idx;
+        }
+
+        static void SamplesUnchecked(System.Random rnd, int[] values, double[] cdfUnnormalized)
+        {
+            // TODO : use binary search to speed up this procedure.
+            double[] uniform = rnd.NextDoubles(values.Length);
+            double w = cdfUnnormalized[cdfUnnormalized.Length - 1];
+            CommonParallel.For(0, values.Length, 4096, (a, b) =>
+            {
+                for (int i = a; i < b; i++)
+                {
+                    var u = uniform[i]*w;
+                    var idx = 0;
+
+                    if (u == 0.0d)
+                    {
+                        // skip zero-probability categories
+                        while (0.0d == cdfUnnormalized[idx])
+                        {
+                            idx++;
+                        }
+                    }
+
+                    while (u > cdfUnnormalized[idx])
+                    {
+                        idx++;
+                    }
+
+                    values[i] = idx;
+                }
+            });
+        }
+
+        static IEnumerable<int> SamplesUnchecked(System.Random rnd, double[] cdfUnnormalized)
+        {
+            while (true)
+            {
+                yield return SampleUnchecked(rnd, cdfUnnormalized);
+            }
         }
 
         /// <summary>
@@ -443,15 +625,121 @@ namespace MathNet.Numerics.Distributions
         }
 
         /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        public void Samples(int[] values)
+        {
+            SamplesUnchecked(_random, values, _cdfUnnormalized);
+        }
+
+        /// <summary>
         /// Samples an array of Bernoulli distributed random variables.
         /// </summary>
         /// <returns>a sequence of successful trial counts.</returns>
         public IEnumerable<int> Samples()
         {
-            while (true)
+            return SamplesUnchecked(_random, _cdfUnnormalized);
+        }
+
+        /// <summary>
+        /// Samples one categorical distributed random variable; also known as the Discrete distribution.
+        /// </summary>
+        /// <param name="rnd">The random number generator to use.</param>
+        /// <param name="probabilityMass">An array of nonnegative ratios. Not assumed to be normalized.</param>
+        /// <returns>One random integer between 0 and the size of the categorical (exclusive).</returns>
+        public static int Sample(System.Random rnd, double[] probabilityMass)
+        {
+            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(probabilityMass))
             {
-                yield return SampleUnchecked(_random, _cdfUnnormalized);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
+
+            var cdf = ProbabilityMassToCumulativeDistribution(probabilityMass);
+            return SampleUnchecked(rnd, cdf);
+        }
+
+        /// <summary>
+        /// Samples a categorically distributed random variable.
+        /// </summary>
+        /// <param name="rnd">The random number generator to use.</param>
+        /// <param name="probabilityMass">An array of nonnegative ratios. Not assumed to be normalized.</param>
+        /// <returns>random integers between 0 and the size of the categorical (exclusive).</returns>
+        public static IEnumerable<int> Samples(System.Random rnd, double[] probabilityMass)
+        {
+            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(probabilityMass))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            var cdf = ProbabilityMassToCumulativeDistribution(probabilityMass);
+            return SamplesUnchecked(rnd, cdf);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="rnd">The random number generator to use.</param>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="probabilityMass">An array of nonnegative ratios. Not assumed to be normalized.</param>
+        /// <returns>random integers between 0 and the size of the categorical (exclusive).</returns>
+        public static void Samples(System.Random rnd, int[] values, double[] probabilityMass)
+        {
+            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(probabilityMass))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            var cdf = ProbabilityMassToCumulativeDistribution(probabilityMass);
+            SamplesUnchecked(rnd, values, cdf);
+        }
+
+        /// <summary>
+        /// Samples one categorical distributed random variable; also known as the Discrete distribution.
+        /// </summary>
+        /// <param name="probabilityMass">An array of nonnegative ratios. Not assumed to be normalized.</param>
+        /// <returns>One random integer between 0 and the size of the categorical (exclusive).</returns>
+        public static int Sample(double[] probabilityMass)
+        {
+            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(probabilityMass))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            var cdf = ProbabilityMassToCumulativeDistribution(probabilityMass);
+            return SampleUnchecked(SystemRandomSource.Default, cdf);
+        }
+
+        /// <summary>
+        /// Samples a categorically distributed random variable.
+        /// </summary>
+        /// <param name="probabilityMass">An array of nonnegative ratios. Not assumed to be normalized.</param>
+        /// <returns>random integers between 0 and the size of the categorical (exclusive).</returns>
+        public static IEnumerable<int> Samples(double[] probabilityMass)
+        {
+            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(probabilityMass))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            var cdf = ProbabilityMassToCumulativeDistribution(probabilityMass);
+            return SamplesUnchecked(SystemRandomSource.Default, cdf);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="probabilityMass">An array of nonnegative ratios. Not assumed to be normalized.</param>
+        /// <returns>random integers between 0 and the size of the categorical (exclusive).</returns>
+        public static void Samples(int[] values, double[] probabilityMass)
+        {
+            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(probabilityMass))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            var cdf = ProbabilityMassToCumulativeDistribution(probabilityMass);
+            SamplesUnchecked(SystemRandomSource.Default, values, cdf);
         }
 
         /// <summary>
@@ -464,27 +752,10 @@ namespace MathNet.Numerics.Distributions
         {
             if (Control.CheckDistributionParameters && !IsValidCumulativeDistribution(cdfUnnormalized))
             {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
 
             return SampleUnchecked(rnd, cdfUnnormalized);
-        }
-
-        /// <summary>
-        /// Samples one categorical distributed random variable; also known as the Discrete distribution.
-        /// </summary>
-        /// <param name="rnd">The random number generator to use.</param>
-        /// <param name="pmfUnnormalized">An array of nonnegative ratios. Not assumed to be normalized.</param>
-        /// <returns>One random integer between 0 and the size of the categorical (exclusive).</returns>
-        public static int SampleWithProbabilityMass(System.Random rnd, double[] pmfUnnormalized)
-        {
-            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(pmfUnnormalized))
-            {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
-            }
-
-            var cdf = ProbabilityMassToCumulativeDistribution(pmfUnnormalized);
-            return SampleUnchecked(rnd, cdf);
         }
 
         /// <summary>
@@ -497,33 +768,73 @@ namespace MathNet.Numerics.Distributions
         {
             if (Control.CheckDistributionParameters && !IsValidCumulativeDistribution(cdfUnnormalized))
             {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
 
-            while (true)
+            return SamplesUnchecked(rnd, cdfUnnormalized);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="rnd">The random number generator to use.</param>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="cdfUnnormalized">An array of the cumulative distribution. Not assumed to be normalized.</param>
+        /// <returns>random integers between 0 and the size of the categorical (exclusive).</returns>
+        public static void SamplesWithCumulativeDistribution(System.Random rnd, int[] values, double[] cdfUnnormalized)
+        {
+            if (Control.CheckDistributionParameters && !IsValidCumulativeDistribution(cdfUnnormalized))
             {
-                yield return SampleUnchecked(rnd, cdfUnnormalized);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
+
+            SamplesUnchecked(rnd, values, cdfUnnormalized);
+        }
+
+        /// <summary>
+        /// Samples one categorical distributed random variable; also known as the Discrete distribution.
+        /// </summary>
+        /// <param name="cdfUnnormalized">An array of the cumulative distribution. Not assumed to be normalized.</param>
+        /// <returns>One random integer between 0 and the size of the categorical (exclusive).</returns>
+        public static int SampleWithCumulativeDistribution(double[] cdfUnnormalized)
+        {
+            if (Control.CheckDistributionParameters && !IsValidCumulativeDistribution(cdfUnnormalized))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SampleUnchecked(SystemRandomSource.Default, cdfUnnormalized);
         }
 
         /// <summary>
         /// Samples a categorically distributed random variable.
         /// </summary>
-        /// <param name="rnd">The random number generator to use.</param>
-        /// <param name="pmfUnnormalized">An array of nonnegative ratios. Not assumed to be normalized.</param>
+        /// <param name="cdfUnnormalized">An array of the cumulative distribution. Not assumed to be normalized.</param>
         /// <returns>random integers between 0 and the size of the categorical (exclusive).</returns>
-        public static IEnumerable<int> SamplesWithProbabilityMass(System.Random rnd, double[] pmfUnnormalized)
+        public static IEnumerable<int> SamplesWithCumulativeDistribution(double[] cdfUnnormalized)
         {
-            if (Control.CheckDistributionParameters && !IsValidProbabilityMass(pmfUnnormalized))
+            if (Control.CheckDistributionParameters && !IsValidCumulativeDistribution(cdfUnnormalized))
             {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
 
-            var cdf = ProbabilityMassToCumulativeDistribution(pmfUnnormalized);
-            while (true)
+            return SamplesUnchecked(SystemRandomSource.Default, cdfUnnormalized);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="cdfUnnormalized">An array of the cumulative distribution. Not assumed to be normalized.</param>
+        /// <returns>random integers between 0 and the size of the categorical (exclusive).</returns>
+        public static void SamplesWithCumulativeDistribution(int[] values, double[] cdfUnnormalized)
+        {
+            if (Control.CheckDistributionParameters && !IsValidCumulativeDistribution(cdfUnnormalized))
             {
-                yield return SampleUnchecked(rnd, cdf);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
+
+            SamplesUnchecked(SystemRandomSource.Default, values, cdfUnnormalized);
         }
     }
 }

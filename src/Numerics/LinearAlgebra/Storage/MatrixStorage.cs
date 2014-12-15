@@ -4,7 +4,7 @@
 // http://github.com/mathnet/mathnet-numerics
 // http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2014 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -48,12 +48,12 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         {
             if (rowCount <= 0)
             {
-                throw new ArgumentOutOfRangeException(Resources.MatrixRowsMustBePositive);
+                throw new ArgumentOutOfRangeException("rowCount", Resources.MatrixRowsMustBePositive);
             }
 
             if (columnCount <= 0)
             {
-                throw new ArgumentOutOfRangeException(Resources.MatrixColumnsMustBePositive);
+                throw new ArgumentOutOfRangeException("columnCount", Resources.MatrixColumnsMustBePositive);
             }
 
             RowCount = rowCount;
@@ -150,6 +150,30 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
         }
 
+        public virtual void ClearRows(int[] rowIndices)
+        {
+            for (var k = 0; k < rowIndices.Length; k++)
+            {
+                int row = rowIndices[k];
+                for (var j = 0; j < ColumnCount; j++)
+                {
+                    At(row, j, Zero);
+                }
+            }
+        }
+
+        public virtual void ClearColumns(int[] columnIndices)
+        {
+            for (var k = 0; k < ColumnCount; k++)
+            {
+                int column = columnIndices[k];
+                for (var i = 0; i < RowCount; i++)
+                {
+                    At(i, column, Zero);
+                }
+            }
+        }
+
         /// <summary>
         /// Indicates whether the current object is equal to another object of the same type.
         /// </summary>
@@ -228,7 +252,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         // MATRIX COPY
 
-        public void CopyTo(MatrixStorage<T> target, bool skipClearing = false)
+        public void CopyTo(MatrixStorage<T> target, ExistingData existingData = ExistingData.Clear)
         {
             if (target == null)
             {
@@ -246,10 +270,10 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
                 throw new ArgumentException(message, "target");
             }
 
-            CopyToUnchecked(target, skipClearing);
+            CopyToUnchecked(target, existingData);
         }
 
-        internal virtual void CopyToUnchecked(MatrixStorage<T> target, bool skipClearing = false)
+        internal virtual void CopyToUnchecked(MatrixStorage<T> target, ExistingData existingData = ExistingData.Clear)
         {
             for (int j = 0; j < ColumnCount; j++)
             {
@@ -263,11 +287,16 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         public void CopySubMatrixTo(MatrixStorage<T> target,
             int sourceRowIndex, int targetRowIndex, int rowCount,
             int sourceColumnIndex, int targetColumnIndex, int columnCount,
-            bool skipClearing = false)
+            ExistingData existingData = ExistingData.Clear)
         {
             if (target == null)
             {
                 throw new ArgumentNullException("target");
+            }
+
+            if (rowCount == 0 || columnCount == 0)
+            {
+                return;
             }
 
             if (ReferenceEquals(this, target))
@@ -280,13 +309,13 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
                 sourceColumnIndex, targetColumnIndex, columnCount);
 
             CopySubMatrixToUnchecked(target, sourceRowIndex, targetRowIndex, rowCount,
-                sourceColumnIndex, targetColumnIndex, columnCount, skipClearing);
+                sourceColumnIndex, targetColumnIndex, columnCount, existingData);
         }
 
         internal virtual void CopySubMatrixToUnchecked(MatrixStorage<T> target,
             int sourceRowIndex, int targetRowIndex, int rowCount,
             int sourceColumnIndex, int targetColumnIndex, int columnCount,
-            bool skipClearing = false)
+            ExistingData existingData = ExistingData.Clear)
         {
             for (int j = sourceColumnIndex, jj = targetColumnIndex; j < sourceColumnIndex + columnCount; j++, jj++)
             {
@@ -299,7 +328,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         // ROW COPY
 
-        public void CopyRowTo(VectorStorage<T> target, int rowIndex, bool skipClearing = false)
+        public void CopyRowTo(VectorStorage<T> target, int rowIndex, ExistingData existingData = ExistingData.Clear)
         {
             if (target == null)
             {
@@ -307,25 +336,30 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
 
             ValidateRowRange(target, rowIndex);
-            CopySubRowToUnchecked(target, rowIndex, 0, 0, ColumnCount, skipClearing);
+            CopySubRowToUnchecked(target, rowIndex, 0, 0, ColumnCount, existingData);
         }
 
         public void CopySubRowTo(VectorStorage<T> target, int rowIndex,
             int sourceColumnIndex, int targetColumnIndex, int columnCount,
-            bool skipClearing = false)
+            ExistingData existingData = ExistingData.Clear)
         {
             if (target == null)
             {
                 throw new ArgumentNullException("target");
             }
 
+            if (columnCount == 0)
+            {
+                return;
+            }
+
             ValidateSubRowRange(target, rowIndex, sourceColumnIndex, targetColumnIndex, columnCount);
-            CopySubRowToUnchecked(target, rowIndex, sourceColumnIndex, targetColumnIndex, columnCount, skipClearing);
+            CopySubRowToUnchecked(target, rowIndex, sourceColumnIndex, targetColumnIndex, columnCount, existingData);
         }
 
         internal virtual void CopySubRowToUnchecked(VectorStorage<T> target, int rowIndex,
             int sourceColumnIndex, int targetColumnIndex, int columnCount,
-            bool skipClearing = false)
+            ExistingData existingData = ExistingData.Clear)
         {
             for (int j = sourceColumnIndex, jj = targetColumnIndex; j < sourceColumnIndex + columnCount; j++, jj++)
             {
@@ -335,7 +369,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         // COLUMN COPY
 
-        public void CopyColumnTo(VectorStorage<T> target, int columnIndex, bool skipClearing = false)
+        public void CopyColumnTo(VectorStorage<T> target, int columnIndex, ExistingData existingData = ExistingData.Clear)
         {
             if (target == null)
             {
@@ -343,25 +377,30 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
 
             ValidateColumnRange(target, columnIndex);
-            CopySubColumnToUnchecked(target, columnIndex, 0, 0, RowCount, skipClearing);
+            CopySubColumnToUnchecked(target, columnIndex, 0, 0, RowCount, existingData);
         }
 
         public void CopySubColumnTo(VectorStorage<T> target, int columnIndex,
             int sourceRowIndex, int targetRowIndex, int rowCount,
-            bool skipClearing = false)
+            ExistingData existingData = ExistingData.Clear)
         {
             if (target == null)
             {
                 throw new ArgumentNullException("target");
             }
 
+            if (rowCount == 0)
+            {
+                return;
+            }
+
             ValidateSubColumnRange(target, columnIndex, sourceRowIndex, targetRowIndex, rowCount);
-            CopySubColumnToUnchecked(target, columnIndex, sourceRowIndex, targetRowIndex, rowCount, skipClearing);
+            CopySubColumnToUnchecked(target, columnIndex, sourceRowIndex, targetRowIndex, rowCount, existingData);
         }
 
         internal virtual void CopySubColumnToUnchecked(VectorStorage<T> target, int columnIndex,
             int sourceRowIndex, int targetRowIndex, int rowCount,
-            bool skipClearing = false)
+            ExistingData existingData = ExistingData.Clear)
         {
             for (int i = sourceRowIndex, ii = targetRowIndex; i < sourceRowIndex + rowCount; i++, ii++)
             {
@@ -369,14 +408,48 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
         }
 
+        // TRANSPOSE
+
+        public void TransposeTo(MatrixStorage<T> target, ExistingData existingData = ExistingData.Clear)
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException("target");
+            }
+
+            if (ReferenceEquals(this, target))
+            {
+                throw new NotSupportedException("In-place transpose is not supported.");
+            }
+
+            if (RowCount != target.ColumnCount || ColumnCount != target.RowCount)
+            {
+                var message = string.Format(Resources.ArgumentMatrixDimensions2, RowCount + "x" + ColumnCount, target.RowCount + "x" + target.ColumnCount);
+                throw new ArgumentException(message, "target");
+            }
+
+            TransposeToUnchecked(target, existingData);
+        }
+
+        internal virtual void TransposeToUnchecked(MatrixStorage<T> target, ExistingData existingData = ExistingData.Clear)
+        {
+            for (int j = 0; j < ColumnCount; j++)
+            {
+                for (int i = 0; i < RowCount; i++)
+                {
+                    target.At(j, i, At(i, j));
+                }
+            }
+        }
+
         // EXTRACT
 
         public virtual T[] ToRowMajorArray()
         {
-            var ret = new T[RowCount * ColumnCount];
+            var ret = new T[RowCount*ColumnCount];
             for (int i = 0; i < RowCount; i++)
             {
-                var offset = i * ColumnCount;
+                var offset = i*ColumnCount;
                 for (int j = 0; j < ColumnCount; j++)
                 {
                     ret[offset + j] = At(i, j);
@@ -387,10 +460,10 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         public virtual T[] ToColumnMajorArray()
         {
-            var ret = new T[RowCount * ColumnCount];
+            var ret = new T[RowCount*ColumnCount];
             for (int j = 0; j < ColumnCount; j++)
             {
-                var offset = j * RowCount;
+                var offset = j*RowCount;
                 for (int i = 0; i < RowCount; i++)
                 {
                     ret[offset + i] = At(i, j);
@@ -401,7 +474,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         public virtual T[,] ToArray()
         {
-            var ret = new T[RowCount,ColumnCount];
+            var ret = new T[RowCount, ColumnCount];
             for (int i = 0; i < RowCount; i++)
             {
                 for (int j = 0; j < ColumnCount; j++)
@@ -466,9 +539,9 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
         }
 
-        // FUNCTIONAL COMBINATORS
+        // FUNCTIONAL COMBINATORS: MAP
 
-        public virtual void MapInplace(Func<T, T> f, bool forceMapZeros = false)
+        public virtual void MapInplace(Func<T, T> f, Zeros zeros = Zeros.AllowSkip)
         {
             for (int i = 0; i < RowCount; i++)
             {
@@ -479,7 +552,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
         }
 
-        public virtual void MapIndexedInplace(Func<int, int, T, T> f, bool forceMapZeros = false)
+        public virtual void MapIndexedInplace(Func<int, int, T, T> f, Zeros zeros = Zeros.AllowSkip)
         {
             for (int i = 0; i < RowCount; i++)
             {
@@ -487,6 +560,189 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
                 {
                     At(i, j, f(i, j, At(i, j)));
                 }
+            }
+        }
+
+        public void MapTo<TU>(MatrixStorage<TU> target, Func<T, TU> f,
+            Zeros zeros = Zeros.AllowSkip, ExistingData existingData = ExistingData.Clear)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException("target");
+            }
+
+            if (RowCount != target.RowCount || ColumnCount != target.ColumnCount)
+            {
+                var message = string.Format(Resources.ArgumentMatrixDimensions2, RowCount + "x" + ColumnCount, target.RowCount + "x" + target.ColumnCount);
+                throw new ArgumentException(message, "target");
+            }
+
+            MapToUnchecked(target, f, zeros, existingData);
+        }
+
+        internal virtual void MapToUnchecked<TU>(MatrixStorage<TU> target, Func<T, TU> f,
+            Zeros zeros = Zeros.AllowSkip, ExistingData existingData = ExistingData.Clear)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            for (int i = 0; i < RowCount; i++)
+            {
+                for (int j = 0; j < ColumnCount; j++)
+                {
+                    target.At(i, j, f(At(i, j)));
+                }
+            }
+        }
+
+        public void MapIndexedTo<TU>(MatrixStorage<TU> target, Func<int, int, T, TU> f,
+            Zeros zeros = Zeros.AllowSkip, ExistingData existingData = ExistingData.Clear)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException("target");
+            }
+
+            if (RowCount != target.RowCount || ColumnCount != target.ColumnCount)
+            {
+                var message = string.Format(Resources.ArgumentMatrixDimensions2, RowCount + "x" + ColumnCount, target.RowCount + "x" + target.ColumnCount);
+                throw new ArgumentException(message, "target");
+            }
+
+            MapIndexedToUnchecked(target, f, zeros, existingData);
+        }
+
+        internal virtual void MapIndexedToUnchecked<TU>(MatrixStorage<TU> target, Func<int, int, T, TU> f,
+            Zeros zeros = Zeros.AllowSkip, ExistingData existingData = ExistingData.Clear)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            for (int j = 0; j < ColumnCount; j++)
+            {
+                for (int i = 0; i < RowCount; i++)
+                {
+                    target.At(i, j, f(i, j, At(i, j)));
+                }
+            }
+        }
+
+        public void MapSubMatrixIndexedTo<TU>(MatrixStorage<TU> target, Func<int, int, T, TU> f,
+            int sourceRowIndex, int targetRowIndex, int rowCount,
+            int sourceColumnIndex, int targetColumnIndex, int columnCount,
+            Zeros zeros = Zeros.AllowSkip, ExistingData existingData = ExistingData.Clear)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException("target");
+            }
+
+            if (rowCount == 0 || columnCount == 0)
+            {
+                return;
+            }
+
+            if (ReferenceEquals(this, target))
+            {
+                throw new NotSupportedException();
+            }
+
+            ValidateSubMatrixRange(target,
+                sourceRowIndex, targetRowIndex, rowCount,
+                sourceColumnIndex, targetColumnIndex, columnCount);
+
+            MapSubMatrixIndexedToUnchecked(target, f, sourceRowIndex, targetRowIndex, rowCount, sourceColumnIndex, targetColumnIndex, columnCount, zeros, existingData);
+        }
+
+        internal virtual void MapSubMatrixIndexedToUnchecked<TU>(MatrixStorage<TU> target, Func<int, int, T, TU> f,
+            int sourceRowIndex, int targetRowIndex, int rowCount,
+            int sourceColumnIndex, int targetColumnIndex, int columnCount,
+            Zeros zeros = Zeros.AllowSkip, ExistingData existingData = ExistingData.Clear)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            for (int j = sourceColumnIndex, jj = targetColumnIndex; j < sourceColumnIndex + columnCount; j++, jj++)
+            {
+                for (int i = sourceRowIndex, ii = targetRowIndex; i < sourceRowIndex + rowCount; i++, ii++)
+                {
+                    target.At(ii, jj, f(ii, jj, At(i, j)));
+                }
+            }
+        }
+
+        // FUNCTIONAL COMBINATORS: FOLD
+
+        /// <remarks>The state array will not be modified, unless it is the same instance as the target array (which is allowed).</remarks>
+        public void FoldByRow<TU>(TU[] target, Func<TU, T, TU> f, Func<TU, int, TU> finalize, TU[] state, Zeros zeros = Zeros.AllowSkip)
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException("target");
+            }
+            if (target.Length != RowCount)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, "target");
+            }
+
+            if (state == null)
+            {
+                throw new ArgumentNullException("state");
+            }
+            if (state.Length != RowCount)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, "state");
+            }
+
+            FoldByRowUnchecked(target, f, finalize, state, zeros);
+        }
+
+        /// <remarks>The state array will not be modified, unless it is the same instance as the target array (which is allowed).</remarks>
+        internal virtual void FoldByRowUnchecked<TU>(TU[] target, Func<TU, T, TU> f, Func<TU, int, TU> finalize, TU[] state, Zeros zeros = Zeros.AllowSkip)
+        {
+            for (int i = 0; i < RowCount; i++)
+            {
+                TU s = state[i];
+                for (int j = 0; j < ColumnCount; j++)
+                {
+                    s = f(s, At(i, j));
+                }
+                target[i] = finalize(s, ColumnCount);
+            }
+        }
+
+        /// <remarks>The state array will not be modified, unless it is the same instance as the target array (which is allowed).</remarks>
+        public void FoldByColumn<TU>(TU[] target, Func<TU, T, TU> f, Func<TU, int, TU> finalize, TU[] state, Zeros zeros = Zeros.AllowSkip)
+        {
+            if (target == null)
+            {
+                throw new ArgumentNullException("target");
+            }
+            if (target.Length != ColumnCount)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, "target");
+            }
+
+            if (state == null)
+            {
+                throw new ArgumentNullException("state");
+            }
+            if (state.Length != ColumnCount)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, "state");
+            }
+
+            FoldByColumnUnchecked(target, f, finalize, state, zeros);
+        }
+
+        /// <remarks>The state array will not be modified, unless it is the same instance as the target array (which is allowed).</remarks>
+        internal virtual void FoldByColumnUnchecked<TU>(TU[] target, Func<TU, T, TU> f, Func<TU, int, TU> finalize, TU[] state, Zeros zeros = Zeros.AllowSkip)
+        {
+            for (int j = 0; j < ColumnCount; j++)
+            {
+                TU s = state[j];
+                for (int i = 0; i < RowCount; i++)
+                {
+                    s = f(s, At(i, j));
+                }
+                target[j] = finalize(s, RowCount);
             }
         }
     }

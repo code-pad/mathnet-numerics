@@ -50,6 +50,14 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         {
         }
 
+        /// <summary>
+        /// Set all values whose absolute value is smaller than the threshold to zero.
+        /// </summary>
+        public override void CoerceZero(double threshold)
+        {
+            MapInplace(x => Math.Abs(x) < threshold ? 0f : x, Zeros.AllowSkip);
+        }
+
         /// <summary>Calculates the induced L1 norm of this matrix.</summary>
         /// <returns>The maximum absolute column sum of the matrix.</returns>
         public override double L1Norm()
@@ -96,6 +104,143 @@ namespace MathNet.Numerics.LinearAlgebra.Single
                 norm += aat.At(i, i);
             }
             return Math.Sqrt(norm);
+        }
+
+        /// <summary>
+        /// Calculates the p-norms of all row vectors.
+        /// Typical values for p are 1.0 (L1, Manhattan norm), 2.0 (L2, Euclidean norm) and positive infinity (infinity norm)
+        /// </summary>
+        public override Vector<double> RowNorms(double norm)
+        {
+            if (norm <= 0.0)
+            {
+                throw new ArgumentOutOfRangeException("norm", Resources.ArgumentMustBePositive);
+            }
+
+            var ret = new double[RowCount];
+            if (norm == 2.0)
+            {
+                Storage.FoldByRowUnchecked(ret, (s, x) => s + x*x, (x, c) => Math.Sqrt(x), ret, Zeros.AllowSkip);
+            }
+            else if (norm == 1.0)
+            {
+                Storage.FoldByRowUnchecked(ret, (s, x) => s + Math.Abs(x), (x, c) => x, ret, Zeros.AllowSkip);
+            }
+            else if (double.IsPositiveInfinity(norm))
+            {
+                Storage.FoldByRowUnchecked(ret, (s, x) => Math.Max(s, Math.Abs(x)), (x, c) => x, ret, Zeros.AllowSkip);
+            }
+            else
+            {
+                double invnorm = 1.0/norm;
+                Storage.FoldByRowUnchecked(ret, (s, x) => s + Math.Pow(Math.Abs(x), norm), (x, c) => Math.Pow(x, invnorm), ret, Zeros.AllowSkip);
+            }
+            return Vector<double>.Build.Dense(ret);
+        }
+
+        /// <summary>
+        /// Calculates the p-norms of all column vectors.
+        /// Typical values for p are 1.0 (L1, Manhattan norm), 2.0 (L2, Euclidean norm) and positive infinity (infinity norm)
+        /// </summary>
+        public override Vector<double> ColumnNorms(double norm)
+        {
+            if (norm <= 0.0)
+            {
+                throw new ArgumentOutOfRangeException("norm", Resources.ArgumentMustBePositive);
+            }
+
+            var ret = new double[ColumnCount];
+            if (norm == 2.0)
+            {
+                Storage.FoldByColumnUnchecked(ret, (s, x) => s + x*x, (x, c) => Math.Sqrt(x), ret, Zeros.AllowSkip);
+            }
+            else if (norm == 1.0)
+            {
+                Storage.FoldByColumnUnchecked(ret, (s, x) => s + Math.Abs(x), (x, c) => x, ret, Zeros.AllowSkip);
+            }
+            else if (double.IsPositiveInfinity(norm))
+            {
+                Storage.FoldByColumnUnchecked(ret, (s, x) => Math.Max(s, Math.Abs(x)), (x, c) => x, ret, Zeros.AllowSkip);
+            }
+            else
+            {
+                double invnorm = 1.0/norm;
+                Storage.FoldByColumnUnchecked(ret, (s, x) => s + Math.Pow(Math.Abs(x), norm), (x, c) => Math.Pow(x, invnorm), ret, Zeros.AllowSkip);
+            }
+            return Vector<double>.Build.Dense(ret);
+        }
+
+        /// <summary>
+        /// Normalizes all row vectors to a unit p-norm.
+        /// Typical values for p are 1.0 (L1, Manhattan norm), 2.0 (L2, Euclidean norm) and positive infinity (infinity norm)
+        /// </summary>
+        public override sealed Matrix<float> NormalizeRows(double norm)
+        {
+            var norminv = ((DenseVectorStorage<double>)RowNorms(norm).Storage).Data;
+            for (int i = 0; i < norminv.Length; i++)
+            {
+                norminv[i] = norminv[i] == 0d ? 1d : 1d/norminv[i];
+            }
+
+            var result = Build.SameAs(this, RowCount, ColumnCount);
+            Storage.MapIndexedTo(result.Storage, (i, j, x) => (float)norminv[i]*x, Zeros.AllowSkip, ExistingData.AssumeZeros);
+            return result;
+        }
+
+        /// <summary>
+        /// Normalizes all column vectors to a unit p-norm.
+        /// Typical values for p are 1.0 (L1, Manhattan norm), 2.0 (L2, Euclidean norm) and positive infinity (infinity norm)
+        /// </summary>
+        public override sealed Matrix<float> NormalizeColumns(double norm)
+        {
+            var norminv = ((DenseVectorStorage<double>)ColumnNorms(norm).Storage).Data;
+            for (int i = 0; i < norminv.Length; i++)
+            {
+                norminv[i] = norminv[i] == 0d ? 1d : 1d/norminv[i];
+            }
+
+            var result = Build.SameAs(this, RowCount, ColumnCount);
+            Storage.MapIndexedTo(result.Storage, (i, j, x) => (float)norminv[j]*x, Zeros.AllowSkip, ExistingData.AssumeZeros);
+            return result;
+        }
+        /// <summary>
+        /// Calculates the value sum of each row vector.
+        /// </summary>
+        public override Vector<float> RowSums()
+        {
+            var ret = new float[RowCount];
+            Storage.FoldByRowUnchecked(ret, (s, x) => s + x, (x, c) => x, ret, Zeros.AllowSkip);
+            return Vector<float>.Build.Dense(ret);
+        }
+
+        /// <summary>
+        /// Calculates the absolute value sum of each row vector.
+        /// </summary>
+        public override Vector<float> RowAbsoluteSums()
+        {
+            var ret = new float[RowCount];
+            Storage.FoldByRowUnchecked(ret, (s, x) => s + Math.Abs(x), (x, c) => x, ret, Zeros.AllowSkip);
+            return Vector<float>.Build.Dense(ret);
+        }
+
+        /// <summary>
+        /// Calculates the value sum of each column vector.
+        /// </summary>
+        public override Vector<float> ColumnSums()
+        {
+            var ret = new float[ColumnCount];
+            Storage.FoldByColumnUnchecked(ret, (s, x) => s + x, (x, c) => x, ret, Zeros.AllowSkip);
+            return Vector<float>.Build.Dense(ret);
+        }
+
+        /// <summary>
+        /// Calculates the absolute value sum of each column vector.
+        /// </summary>
+        public override Vector<float> ColumnAbsoluteSums()
+        {
+            var ret = new float[ColumnCount];
+            Storage.FoldByColumnUnchecked(ret, (s, x) => s + Math.Abs(x), (x, c) => x, ret, Zeros.AllowSkip);
+            return Vector<float>.Build.Dense(ret);
         }
 
         /// <summary>
@@ -216,16 +361,16 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         /// <param name="result">The result of the multiplication.</param>
         protected override void DoMultiply(Matrix<float> other, Matrix<float> result)
         {
-            for (var j = 0; j < RowCount; j++)
+            for (var i = 0; i < RowCount; i++)
             {
-                for (var i = 0; i < other.ColumnCount; i++)
+                for (var j = 0; j < other.ColumnCount; j++)
                 {
                     var s = 0.0f;
-                    for (var l = 0; l < ColumnCount; l++)
+                    for (var k = 0; k < ColumnCount; k++)
                     {
-                        s += At(j, l)*other.At(l, i);
+                        s += At(i, k)*other.At(k, j);
                     }
-                    result.At(j, i, s);
+                    result.At(i, j, s);
                 }
             }
         }
@@ -268,9 +413,9 @@ namespace MathNet.Numerics.LinearAlgebra.Single
                 for (var i = 0; i < RowCount; i++)
                 {
                     var s = 0.0f;
-                    for (var l = 0; l < ColumnCount; l++)
+                    for (var k = 0; k < ColumnCount; k++)
                     {
-                        s += At(i, l)*other.At(j, l);
+                        s += At(i, k)*other.At(j, k);
                     }
                     result.At(i, j, s);
                 }
@@ -299,9 +444,9 @@ namespace MathNet.Numerics.LinearAlgebra.Single
                 for (var i = 0; i < ColumnCount; i++)
                 {
                     var s = 0.0f;
-                    for (var l = 0; l < RowCount; l++)
+                    for (var k = 0; k < RowCount; k++)
                     {
-                        s += At(l, i)*other.At(l, j);
+                        s += At(k, i)*other.At(k, j);
                     }
                     result.At(i, j, s);
                 }
@@ -325,14 +470,14 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         /// <param name="result">The result of the multiplication.</param>
         protected override void DoTransposeThisAndMultiply(Vector<float> rightSide, Vector<float> result)
         {
-            for (var i = 0; i < ColumnCount; i++)
+            for (var j = 0; j < ColumnCount; j++)
             {
                 var s = 0.0f;
-                for (var j = 0; j < RowCount; j++)
+                for (var i = 0; i < RowCount; i++)
                 {
-                    s += At(j, i)*rightSide[j];
+                    s += At(i, j)*rightSide[i];
                 }
-                result[i] = s;
+                result[j] = s;
             }
         }
 
@@ -341,7 +486,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         /// </summary>
         /// <param name="rightSide">The vector to multiply with.</param>
         /// <param name="result">The result of the multiplication.</param>
-        protected override void DoConjugateTransposeThisAndMultiply(Vector<float> rightSide, Vector<float> result)
+        protected override sealed void DoConjugateTransposeThisAndMultiply(Vector<float> rightSide, Vector<float> result)
         {
             DoTransposeThisAndMultiply(rightSide, result);
         }
@@ -476,6 +621,16 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         }
 
         /// <summary>
+        /// Pointwise raise this matrix to an exponent and store the result into the result vector.
+        /// </summary>
+        /// <param name="exponent">The exponent to raise this matrix values to.</param>
+        /// <param name="result">The vector to store the result of the pointwise power.</param>
+        protected override void DoPointwisePower(float exponent, Matrix<float> result)
+        {
+            Map(x => (float)Math.Pow(x, exponent), result, Zeros.AllowSkip);
+        }
+
+        /// <summary>
         /// Pointwise canonical modulus, where the result has the sign of the divisor,
         /// of this matrix with another matrix and stores the result into the result matrix.
         /// </summary>
@@ -510,6 +665,24 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         }
 
         /// <summary>
+        /// Pointwise applies the exponential function to each value and stores the result into the result matrix.
+        /// </summary>
+        /// <param name="result">The matrix to store the result.</param>
+        protected override void DoPointwiseExp(Matrix<float> result)
+        {
+            Map(x => (float)Math.Exp(x), result, Zeros.Include);
+        }
+
+        /// <summary>
+        /// Pointwise applies the natural logarithm function to each value and stores the result into the result matrix.
+        /// </summary>
+        /// <param name="result">The matrix to store the result.</param>
+        protected override void DoPointwiseLog(Matrix<float> result)
+        {
+            Map(x => (float)Math.Log(x), result, Zeros.Include);
+        }
+
+        /// <summary>
         /// Computes the trace of this matrix.
         /// </summary>
         /// <returns>The trace of this matrix</returns>
@@ -528,6 +701,14 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             }
 
             return sum;
+        }
+
+        /// <summary>
+        /// Evaluates whether this matrix is hermitian (conjugate symmetric).
+        /// </summary>
+        public override sealed bool IsHermitian()
+        {
+            return IsSymmetric();
         }
 
         public override Cholesky<float> Cholesky()
@@ -555,9 +736,9 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             return UserSvd.Create(this, computeVectors);
         }
 
-        public override Evd<float> Evd()
+        public override Evd<float> Evd(Symmetricity symmetricity = Symmetricity.Unknown)
         {
-            return UserEvd.Create(this);
+            return UserEvd.Create(this, symmetricity);
         }
     }
 }

@@ -49,6 +49,14 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         }
 
         /// <summary>
+        /// Set all values whose absolute value is smaller than the threshold to zero.
+        /// </summary>
+        public override void CoerceZero(double threshold)
+        {
+            MapInplace(x => Math.Abs(x) < threshold ? 0f : x, Zeros.AllowSkip);
+        }
+
+        /// <summary>
         /// Adds a scalar to each element of the vector and stores the result in the result vector.
         /// </summary>
         /// <param name="scalar">
@@ -184,6 +192,16 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         }
 
         /// <summary>
+        /// Pointwise raise this vector to an exponent and store the result into the result vector.
+        /// </summary>
+        /// <param name="exponent">The exponent to raise this vector values to.</param>
+        /// <param name="result">The vector to store the result of the pointwise power.</param>
+        protected override void DoPointwisePower(float exponent, Vector<float> result)
+        {
+            Map(x => (float)Math.Pow(x, exponent), result, Zeros.AllowSkip);
+        }
+
+        /// <summary>
         /// Pointwise canonical modulus, where the result has the sign of the divisor,
         /// of this vector with another vector and stores the result into the result vector.
         /// </summary>
@@ -209,6 +227,24 @@ namespace MathNet.Numerics.LinearAlgebra.Single
             {
                 result.At(index, At(index)%divisor.At(index));
             }
+        }
+
+        /// <summary>
+        /// Pointwise applies the exponential function to each value and stores the result into the result vector.
+        /// </summary>
+        /// <param name="result">The vector to store the result.</param>
+        protected override void DoPointwiseExp(Vector<float> result)
+        {
+            Map(x => (float)Math.Exp(x), result, Zeros.Include);
+        }
+
+        /// <summary>
+        /// Pointwise applies the natural logarithm function to each value and stores the result into the result vector.
+        /// </summary>
+        /// <param name="result">The vector to store the result.</param>
+        protected override void DoPointwiseLog(Vector<float> result)
+        {
+            Map(x => (float)Math.Log(x), result, Zeros.Include);
         }
 
         /// <summary>
@@ -392,7 +428,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         /// <summary>
         /// Calculates the infinity norm of the vector.
         /// </summary>
-        /// <returns>The square root of the sum of the squared values.</returns>
+        /// <returns>The maximum absolute value.</returns>
         public override double InfinityNorm()
         {
             return CommonParallel.Aggregate(0, Count, i => Math.Abs(At(i)), Math.Max, 0f);

@@ -116,8 +116,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         /// </summary>
         public static SparseVector Create(int length, float value)
         {
-            if (value == 0f) return new SparseVector(length);
-            return new SparseVector(SparseVectorStorage<float>.OfInit(length, i => value));
+            return new SparseVector(SparseVectorStorage<float>.OfValue(length, value));
         }
 
         /// <summary>
@@ -757,7 +756,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
         /// <summary>
         /// Calculates the infinity norm of the vector.
         /// </summary>
-        /// <returns>The square root of the sum of the squared values.</returns>
+        /// <returns>The maximum absolute value.</returns>
         public override double InfinityNorm()
         {
             return CommonParallel.Aggregate(0, _storage.ValueCount, i => Math.Abs(_storage.Values[i]), Math.Max, 0f);
@@ -835,53 +834,6 @@ namespace MathNet.Numerics.LinearAlgebra.Single
                     result.At(index, _storage.Values[i] / divisor.At(index));
                 }
             }
-        }
-
-        /// <summary>
-        /// Outer product of two vectors
-        /// </summary>
-        /// <param name="u">First vector</param>
-        /// <param name="v">Second vector</param>
-        /// <returns>Matrix M[i,j] = u[i]*v[j] </returns>
-        /// <exception cref="ArgumentNullException">If the u vector is <see langword="null" />.</exception>
-        /// <exception cref="ArgumentNullException">If the v vector is <see langword="null" />.</exception>
-        public static Matrix<float> OuterProduct(SparseVector u, SparseVector v)
-        {
-            if (u == null)
-            {
-                throw new ArgumentNullException("u");
-            }
-
-            if (v == null)
-            {
-                throw new ArgumentNullException("v");
-            }
-
-            var matrix = new SparseMatrix(u.Count, v.Count);
-            for (var i = 0; i < u._storage.ValueCount; i++)
-            {
-                for (var j = 0; j < v._storage.ValueCount; j++)
-                {
-                    if (u._storage.Indices[i] == v._storage.Indices[j])
-                    {
-                        matrix.At(i, j, u._storage.Values[i] * v._storage.Values[j]);
-                    }
-                }
-            }
-
-            return matrix;
-        }
-
-        /// <summary>
-        /// Outer product of this and another vector.
-        /// </summary>
-        /// <param name="v">The vector to operate on.</param>
-        /// <returns>
-        /// Matrix M[i,j] = this[i] * v[j].
-        /// </returns>
-        public Matrix<float> OuterProduct(SparseVector v)
-        {
-            return OuterProduct(this, v);
         }
 
         #region Parse Functions

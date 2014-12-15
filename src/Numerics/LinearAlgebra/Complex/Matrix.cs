@@ -41,7 +41,6 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
     using Complex = Numerics.Complex;
 #else
     using Complex = System.Numerics.Complex;
-
 #endif
 
     /// <summary>
@@ -56,6 +55,14 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
         protected Matrix(MatrixStorage<Complex> storage)
             : base(storage)
         {
+        }
+
+        /// <summary>
+        /// Set all values whose absolute value is smaller than the threshold to zero.
+        /// </summary>
+        public override void CoerceZero(double threshold)
+        {
+            MapInplace(x => x.Magnitude < threshold ? Complex.Zero : x, Zeros.AllowSkip);
         }
 
         /// <summary>Calculates the induced L1 norm of this matrix.</summary>
@@ -107,19 +114,151 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
         }
 
         /// <summary>
-        /// Returns the conjugate transpose of this matrix.
-        /// </summary>        
-        /// <returns>The conjugate transpose of this matrix.</returns>
-        public override Matrix<Complex> ConjugateTranspose()
+        /// Calculates the p-norms of all row vectors.
+        /// Typical values for p are 1.0 (L1, Manhattan norm), 2.0 (L2, Euclidean norm) and positive infinity (infinity norm)
+        /// </summary>
+        public override Vector<double> RowNorms(double norm)
         {
-            var ret = Build.SameAs(this, ColumnCount, RowCount);
-            for (var j = 0; j < ColumnCount; j++)
+            if (norm <= 0.0)
             {
-                for (var i = 0; i < RowCount; i++)
-                {
-                    ret.At(j, i, At(i, j).Conjugate());
-                }
+                throw new ArgumentOutOfRangeException("norm", Resources.ArgumentMustBePositive);
             }
+
+            var ret = new double[RowCount];
+            if (norm == 2.0)
+            {
+                Storage.FoldByRowUnchecked(ret, (s, x) => s + x.MagnitudeSquared(), (x, c) => Math.Sqrt(x), ret, Zeros.AllowSkip);
+            }
+            else if (norm == 1.0)
+            {
+                Storage.FoldByRowUnchecked(ret, (s, x) => s + x.Magnitude, (x, c) => x, ret, Zeros.AllowSkip);
+            }
+            else if (double.IsPositiveInfinity(norm))
+            {
+                Storage.FoldByRowUnchecked(ret, (s, x) => Math.Max(s, x.Magnitude), (x, c) => x, ret, Zeros.AllowSkip);
+            }
+            else
+            {
+                double invnorm = 1.0/norm;
+                Storage.FoldByRowUnchecked(ret, (s, x) => s + Math.Pow(x.Magnitude, norm), (x, c) => Math.Pow(x, invnorm), ret, Zeros.AllowSkip);
+            }
+            return Vector<double>.Build.Dense(ret);
+        }
+
+        /// <summary>
+        /// Calculates the p-norms of all column vectors.
+        /// Typical values for p are 1.0 (L1, Manhattan norm), 2.0 (L2, Euclidean norm) and positive infinity (infinity norm)
+        /// </summary>
+        public override Vector<double> ColumnNorms(double norm)
+        {
+            if (norm <= 0.0)
+            {
+                throw new ArgumentOutOfRangeException("norm", Resources.ArgumentMustBePositive);
+            }
+
+            var ret = new double[ColumnCount];
+            if (norm == 2.0)
+            {
+                Storage.FoldByColumnUnchecked(ret, (s, x) => s + x.MagnitudeSquared(), (x, c) => Math.Sqrt(x), ret, Zeros.AllowSkip);
+            }
+            else if (norm == 1.0)
+            {
+                Storage.FoldByColumnUnchecked(ret, (s, x) => s + x.Magnitude, (x, c) => x, ret, Zeros.AllowSkip);
+            }
+            else if (double.IsPositiveInfinity(norm))
+            {
+                Storage.FoldByColumnUnchecked(ret, (s, x) => Math.Max(s, x.Magnitude), (x, c) => x, ret, Zeros.AllowSkip);
+            }
+            else
+            {
+                double invnorm = 1.0/norm;
+                Storage.FoldByColumnUnchecked(ret, (s, x) => s + Math.Pow(x.Magnitude, norm), (x, c) => Math.Pow(x, invnorm), ret, Zeros.AllowSkip);
+            }
+            return Vector<double>.Build.Dense(ret);
+        }
+
+        /// <summary>
+        /// Normalizes all row vectors to a unit p-norm.
+        /// Typical values for p are 1.0 (L1, Manhattan norm), 2.0 (L2, Euclidean norm) and positive infinity (infinity norm)
+        /// </summary>
+        public override sealed Matrix<Complex> NormalizeRows(double norm)
+        {
+            var norminv = ((DenseVectorStorage<double>)RowNorms(norm).Storage).Data;
+            for (int i = 0; i < norminv.Length; i++)
+            {
+                norminv[i] = norminv[i] == 0d ? 1d : 1d/norminv[i];
+            }
+
+            var result = Build.SameAs(this, RowCount, ColumnCount);
+            Storage.MapIndexedTo(result.Storage, (i, j, x) => norminv[i]*x, Zeros.AllowSkip, ExistingData.AssumeZeros);
+            return result;
+        }
+
+        /// <summary>
+        /// Normalizes all column vectors to a unit p-norm.
+        /// Typical values for p are 1.0 (L1, Manhattan norm), 2.0 (L2, Euclidean norm) and positive infinity (infinity norm)
+        /// </summary>
+        public override sealed Matrix<Complex> NormalizeColumns(double norm)
+        {
+            var norminv = ((DenseVectorStorage<double>)ColumnNorms(norm).Storage).Data;
+            for (int i = 0; i < norminv.Length; i++)
+            {
+                norminv[i] = norminv[i] == 0d ? 1d : 1d/norminv[i];
+            }
+
+            var result = Build.SameAs(this, RowCount, ColumnCount);
+            Storage.MapIndexedTo(result.Storage, (i, j, x) => norminv[j]*x, Zeros.AllowSkip, ExistingData.AssumeZeros);
+            return result;
+        }
+
+        /// <summary>
+        /// Calculates the value sum of each row vector.
+        /// </summary>
+        public override Vector<Complex> RowSums()
+        {
+            var ret = new Complex[RowCount];
+            Storage.FoldByRowUnchecked(ret, (s, x) => s + x, (x, c) => x, ret, Zeros.AllowSkip);
+            return Vector<Complex>.Build.Dense(ret);
+        }
+
+        /// <summary>
+        /// Calculates the absolute value sum of each row vector.
+        /// </summary>
+        public override Vector<Complex> RowAbsoluteSums()
+        {
+            var ret = new Complex[RowCount];
+            Storage.FoldByRowUnchecked(ret, (s, x) => s + x.Magnitude, (x, c) => x, ret, Zeros.AllowSkip);
+            return Vector<Complex>.Build.Dense(ret);
+        }
+
+        /// <summary>
+        /// Calculates the value sum of each column vector.
+        /// </summary>
+        public override Vector<Complex> ColumnSums()
+        {
+            var ret = new Complex[ColumnCount];
+            Storage.FoldByColumnUnchecked(ret, (s, x) => s + x, (x, c) => x, ret, Zeros.AllowSkip);
+            return Vector<Complex>.Build.Dense(ret);
+        }
+
+        /// <summary>
+        /// Calculates the absolute value sum of each column vector.
+        /// </summary>
+        public override Vector<Complex> ColumnAbsoluteSums()
+        {
+            var ret = new Complex[ColumnCount];
+            Storage.FoldByColumnUnchecked(ret, (s, x) => s + x.Magnitude, (x, c) => x, ret, Zeros.AllowSkip);
+            return Vector<Complex>.Build.Dense(ret);
+        }
+
+        /// <summary>
+        /// Returns the conjugate transpose of this matrix.
+        /// </summary>
+        /// <returns>The conjugate transpose of this matrix.</returns>
+        public override sealed Matrix<Complex> ConjugateTranspose()
+        {
+            var ret = Transpose();
+            ret.MapInplace(c => c.Conjugate(), Zeros.AllowSkip);
             return ret;
         }
 
@@ -232,16 +371,16 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
         /// <param name="result">The result of the multiplication.</param>
         protected override void DoMultiply(Matrix<Complex> other, Matrix<Complex> result)
         {
-            for (var j = 0; j < RowCount; j++)
+            for (var i = 0; i < RowCount; i++)
             {
-                for (var i = 0; i != other.ColumnCount; i++)
+                for (var j = 0; j != other.ColumnCount; j++)
                 {
                     var s = Complex.Zero;
-                    for (var l = 0; l < ColumnCount; l++)
+                    for (var k = 0; k < ColumnCount; k++)
                     {
-                        s += At(j, l)*other.At(l, i);
+                        s += At(i, k)*other.At(k, j);
                     }
-                    result.At(j, i, s);
+                    result.At(i, j, s);
                 }
             }
         }
@@ -284,9 +423,9 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
                 for (var i = 0; i < RowCount; i++)
                 {
                     var s = Complex.Zero;
-                    for (var l = 0; l < ColumnCount; l++)
+                    for (var k = 0; k < ColumnCount; k++)
                     {
-                        s += At(i, l)*other.At(j, l);
+                        s += At(i, k)*other.At(j, k);
                     }
                     result.At(i, j, s);
                 }
@@ -305,9 +444,9 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
                 for (var i = 0; i < RowCount; i++)
                 {
                     var s = Complex.Zero;
-                    for (var l = 0; l < ColumnCount; l++)
+                    for (var k = 0; k < ColumnCount; k++)
                     {
-                        s += At(i, l)*other.At(j, l).Conjugate();
+                        s += At(i, k)*other.At(j, k).Conjugate();
                     }
                     result.At(i, j, s);
                 }
@@ -326,9 +465,9 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
                 for (var i = 0; i < ColumnCount; i++)
                 {
                     var s = Complex.Zero;
-                    for (var l = 0; l < RowCount; l++)
+                    for (var k = 0; k < RowCount; k++)
                     {
-                        s += At(l, i)*other.At(l, j);
+                        s += At(k, i)*other.At(k, j);
                     }
                     result.At(i, j, s);
                 }
@@ -347,9 +486,9 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
                 for (var i = 0; i < ColumnCount; i++)
                 {
                     var s = Complex.Zero;
-                    for (var l = 0; l < RowCount; l++)
+                    for (var k = 0; k < RowCount; k++)
                     {
-                        s += At(l, i).Conjugate()*other.At(l, j);
+                        s += At(k, i).Conjugate()*other.At(k, j);
                     }
                     result.At(i, j, s);
                 }
@@ -363,14 +502,14 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
         /// <param name="result">The result of the multiplication.</param>
         protected override void DoTransposeThisAndMultiply(Vector<Complex> rightSide, Vector<Complex> result)
         {
-            for (var i = 0; i < ColumnCount; i++)
+            for (var j = 0; j < ColumnCount; j++)
             {
                 var s = Complex.Zero;
-                for (var j = 0; j < RowCount; j++)
+                for (var i = 0; i < RowCount; i++)
                 {
-                    s += At(j, i)*rightSide[j];
+                    s += At(i, j)*rightSide[i];
                 }
-                result[i] = s;
+                result[j] = s;
             }
         }
 
@@ -381,14 +520,14 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
         /// <param name="result">The result of the multiplication.</param>
         protected override void DoConjugateTransposeThisAndMultiply(Vector<Complex> rightSide, Vector<Complex> result)
         {
-            for (var i = 0; i < ColumnCount; i++)
+            for (var j = 0; j < ColumnCount; j++)
             {
                 var s = Complex.Zero;
-                for (var j = 0; j < RowCount; j++)
+                for (var i = 0; i < RowCount; i++)
                 {
-                    s += At(j, i).Conjugate()*rightSide[j];
+                    s += At(i, j).Conjugate()*rightSide[i];
                 }
-                result[i] = s;
+                result[j] = s;
             }
         }
 
@@ -452,6 +591,16 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
                     result.At(i, j, At(i, j)/divisor.At(i, j));
                 }
             }
+        }
+
+        /// <summary>
+        /// Pointwise raise this matrix to an exponent and store the result into the result vector.
+        /// </summary>
+        /// <param name="exponent">The exponent to raise this matrix values to.</param>
+        /// <param name="result">The vector to store the result of the pointwise power.</param>
+        protected override void DoPointwisePower(Complex exponent, Matrix<Complex> result)
+        {
+            Map(x => x.Power(exponent), result, Zeros.AllowSkip);
         }
 
         /// <summary>
@@ -521,6 +670,24 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
         }
 
         /// <summary>
+        /// Pointwise applies the exponential function to each value and stores the result into the result matrix.
+        /// </summary>
+        /// <param name="result">The matrix to store the result.</param>
+        protected override void DoPointwiseExp(Matrix<Complex> result)
+        {
+            Map(Complex.Exp, result, Zeros.Include);
+        }
+
+        /// <summary>
+        /// Pointwise applies the natural logarithm function to each value and stores the result into the result matrix.
+        /// </summary>
+        /// <param name="result">The matrix to store the result.</param>
+        protected override void DoPointwiseLog(Matrix<Complex> result)
+        {
+            Map(Complex.Log, result, Zeros.Include);
+        }
+
+        /// <summary>
         /// Computes the trace of this matrix.
         /// </summary>
         /// <returns>The trace of this matrix</returns>
@@ -539,6 +706,38 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
             }
 
             return sum;
+        }
+
+        /// <summary>
+        /// Evaluates whether this matrix is hermitian (conjugate symmetric).
+        /// </summary>
+        public override bool IsHermitian()
+        {
+            if (RowCount != ColumnCount)
+            {
+                return false;
+            }
+
+            for (var k = 0; k < RowCount; k++)
+            {
+                if (!At(k, k).IsReal())
+                {
+                    return false;
+                }
+            }
+
+            for (var row = 0; row < RowCount; row++)
+            {
+                for (var column = row + 1; column < ColumnCount; column++)
+                {
+                    if (!At(row, column).Equals(At(column, row).Conjugate()))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
         }
 
         public override Cholesky<Complex> Cholesky()
@@ -566,9 +765,9 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
             return UserSvd.Create(this, computeVectors);
         }
 
-        public override Evd<Complex> Evd()
+        public override Evd<Complex> Evd(Symmetricity symmetricity = Symmetricity.Unknown)
         {
-            return UserEvd.Create(this);
+            return UserEvd.Create(this, symmetricity);
         }
     }
 }

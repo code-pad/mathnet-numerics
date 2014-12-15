@@ -346,7 +346,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         public static DenseMatrix Create(int rows, int columns, double value)
         {
             if (value == 0d) return new DenseMatrix(rows, columns);
-            return new DenseMatrix(DenseColumnMajorMatrixStorage<double>.OfInit(rows, columns, (i, j) => value));
+            return new DenseMatrix(DenseColumnMajorMatrixStorage<double>.OfValue(rows, columns, value));
         }
 
         /// <summary>
@@ -387,7 +387,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
         /// </summary>
         public static DenseMatrix CreateRandom(int rows, int columns, IContinuousDistribution distribution)
         {
-            return new DenseMatrix(DenseColumnMajorMatrixStorage<double>.OfInit(rows, columns, (i, j) => distribution.Sample()));
+            return new DenseMatrix(new DenseColumnMajorMatrixStorage<double>(rows, columns, Generate.Random(rows*columns, distribution)));
         }
 
         /// <summary>
@@ -434,25 +434,6 @@ namespace MathNet.Numerics.LinearAlgebra.Double
             }
 
             base.DoNegate(result);
-        }
-
-        /// <summary>
-        /// Returns the transpose of this matrix.
-        /// </summary>
-        /// <returns>The transpose of this matrix.</returns>
-        public override Matrix<double> Transpose()
-        {
-            var ret = new DenseMatrix(_columnCount, _rowCount);
-            for (var j = 0; j < _columnCount; j++)
-            {
-                var index = j * _rowCount;
-                for (var i = 0; i < _rowCount; i++)
-                {
-                    ret._values[(i * _columnCount) + j] = _values[index + i];
-                }
-            }
-
-            return ret;
         }
 
         /// <summary>
@@ -603,17 +584,13 @@ namespace MathNet.Numerics.LinearAlgebra.Double
             }
             else
             {
-                Control.LinearAlgebraProvider.MatrixMultiplyWithUpdate(
-                    Providers.LinearAlgebra.Transpose.DontTranspose,
-                    Providers.LinearAlgebra.Transpose.DontTranspose,
-                    1.0,
+                Control.LinearAlgebraProvider.MatrixMultiply(
                     _values,
                     _rowCount,
                     _columnCount,
                     denseRight.Values,
                     denseRight.Count,
                     1,
-                    0.0,
                     denseResult.Values);
             }
         }
@@ -629,17 +606,13 @@ namespace MathNet.Numerics.LinearAlgebra.Double
             var denseResult = result as DenseMatrix;
             if (denseOther != null && denseResult != null)
             {
-                Control.LinearAlgebraProvider.MatrixMultiplyWithUpdate(
-                    Providers.LinearAlgebra.Transpose.DontTranspose,
-                    Providers.LinearAlgebra.Transpose.DontTranspose,
-                    1.0,
+                Control.LinearAlgebraProvider.MatrixMultiply(
                     _values,
                     _rowCount,
                     _columnCount,
                     denseOther._values,
                     denseOther._rowCount,
                     denseOther._columnCount,
-                    0.0,
                     denseResult._values);
                 return;
             }
@@ -1199,6 +1172,31 @@ namespace MathNet.Numerics.LinearAlgebra.Double
             return (DenseMatrix)leftSide.Remainder(rightSide);
         }
 
+        /// <summary>
+        /// Evaluates whether this matrix is symmetric.
+        /// </summary>
+        public override bool IsSymmetric()
+        {
+            if (RowCount != ColumnCount)
+            {
+                return false;
+            }
+
+            for (var j = 0; j < ColumnCount; j++)
+            {
+                var index = j * RowCount;
+                for (var i = j + 1; i < RowCount; i++)
+                {
+                    if (_values[(i*ColumnCount) + j] != _values[index + i])
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
         public override Cholesky<double> Cholesky()
         {
             return DenseCholesky.Create(this);
@@ -1224,9 +1222,9 @@ namespace MathNet.Numerics.LinearAlgebra.Double
             return DenseSvd.Create(this, computeVectors);
         }
 
-        public override Evd<double> Evd()
+        public override Evd<double> Evd(Symmetricity symmetricity = Symmetricity.Unknown)
         {
-            return DenseEvd.Create(this);
+            return DenseEvd.Create(this, symmetricity);
         }
     }
 }

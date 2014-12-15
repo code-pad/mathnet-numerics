@@ -34,6 +34,7 @@ using System.Linq;
 using MathNet.Numerics.Properties;
 using MathNet.Numerics.Random;
 using MathNet.Numerics.Statistics;
+using MathNet.Numerics.Threading;
 
 namespace MathNet.Numerics.Distributions
 {
@@ -46,8 +47,8 @@ namespace MathNet.Numerics.Distributions
     {
         System.Random _random;
 
-        double _mu;
-        double _sigma;
+        readonly double _mu;
+        readonly double _sigma;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="LogNormal"/> class.
@@ -58,8 +59,14 @@ namespace MathNet.Numerics.Distributions
         /// <param name="sigma">The shape (σ) of the logarithm of the distribution. Range: σ ≥ 0.</param>
         public LogNormal(double mu, double sigma)
         {
+            if (!IsValidParameterSet(mu, sigma))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
             _random = SystemRandomSource.Default;
-            SetParameters(mu, sigma);
+            _mu = mu;
+            _sigma = sigma;
         }
 
         /// <summary>
@@ -72,8 +79,14 @@ namespace MathNet.Numerics.Distributions
         /// <param name="randomSource">The random number generator which is used to draw random samples.</param>
         public LogNormal(double mu, double sigma, System.Random randomSource)
         {
+            if (!IsValidParameterSet(mu, sigma))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
             _random = randomSource ?? SystemRandomSource.Default;
-            SetParameters(mu, sigma);
+            _mu = mu;
+            _sigma = sigma;
         }
 
         /// <summary>
@@ -98,7 +111,7 @@ namespace MathNet.Numerics.Distributions
         public static LogNormal WithMeanVariance(double mean, double var, System.Random randomSource = null)
         {
             var sigma2 = Math.Log(var/(mean*mean) + 1.0);
-            return new LogNormal(Math.Log(mean) - sigma2 / 2.0, Math.Sqrt(sigma2), randomSource);
+            return new LogNormal(Math.Log(mean) - sigma2/2.0, Math.Sqrt(sigma2), randomSource);
         }
 
         /// <summary>
@@ -110,8 +123,8 @@ namespace MathNet.Numerics.Distributions
         /// <remarks>MATLAB: lognfit</remarks>
         public static LogNormal Estimate(IEnumerable<double> samples, System.Random randomSource = null)
         {
-            var muSigma2 = samples.Select(s => Math.Log(s)).MeanVariance();
-            return new LogNormal(muSigma2.Item1, Math.Sqrt(muSigma2.Item2), randomSource);
+            var muSigma = samples.Select(s => Math.Log(s)).MeanStandardDeviation();
+            return new LogNormal(muSigma.Item1, muSigma.Item2, randomSource);
         }
 
         /// <summary>
@@ -124,20 +137,13 @@ namespace MathNet.Numerics.Distributions
         }
 
         /// <summary>
-        /// Sets the parameters of the distribution after checking their validity.
+        /// Tests whether the provided values are valid parameters for this distribution.
         /// </summary>
         /// <param name="mu">The log-scale (μ) of the distribution.</param>
         /// <param name="sigma">The shape (σ) of the distribution. Range: σ ≥ 0.</param>
-        /// <exception cref="ArgumentOutOfRangeException">When the parameters are out of range.</exception>
-        void SetParameters(double mu, double sigma)
+        public static bool IsValidParameterSet(double mu, double sigma)
         {
-            if (sigma < 0.0 || Double.IsNaN(mu) || Double.IsNaN(sigma))
-            {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
-            }
-
-            _mu = mu;
-            _sigma = sigma;
+            return sigma >= 0.0 && !double.IsNaN(mu);
         }
 
         /// <summary>
@@ -146,7 +152,6 @@ namespace MathNet.Numerics.Distributions
         public double Mu
         {
             get { return _mu; }
-            set { SetParameters(value, _sigma); }
         }
 
         /// <summary>
@@ -155,7 +160,6 @@ namespace MathNet.Numerics.Distributions
         public double Sigma
         {
             get { return _sigma; }
-            set { SetParameters(_mu, value); }
         }
 
         /// <summary>
@@ -248,7 +252,7 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         public double Maximum
         {
-            get { return Double.PositiveInfinity; }
+            get { return double.PositiveInfinity; }
         }
 
         /// <summary>
@@ -264,7 +268,7 @@ namespace MathNet.Numerics.Distributions
                 return 0.0;
             }
 
-            var a = (Math.Log(x) - _mu) / _sigma;
+            var a = (Math.Log(x) - _mu)/_sigma;
             return Math.Exp(-0.5*a*a)/(x*_sigma*Constants.Sqrt2Pi);
         }
 
@@ -278,10 +282,10 @@ namespace MathNet.Numerics.Distributions
         {
             if (x < 0.0)
             {
-                return Double.NegativeInfinity;
+                return double.NegativeInfinity;
             }
 
-            var a = (Math.Log(x) - _mu) / _sigma;
+            var a = (Math.Log(x) - _mu)/_sigma;
             return (-0.5*a*a) - Math.Log(x*_sigma) - Constants.LogSqrt2Pi;
         }
 
@@ -316,7 +320,15 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sample from the distribution.</returns>
         public double Sample()
         {
-            return Math.Exp(Normal.Sample(_random, _mu, _sigma));
+            return SampleUnchecked(_random, _mu, _sigma);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        public void Samples(double[] values)
+        {
+            SamplesUnchecked(_random, values, _mu, _sigma);
         }
 
         /// <summary>
@@ -325,7 +337,29 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sequence of samples from the distribution.</returns>
         public IEnumerable<double> Samples()
         {
-            return Normal.Samples(_random, _mu, _sigma).Select(Math.Exp);
+            return SamplesUnchecked(_random, _mu, _sigma);
+        }
+
+        static double SampleUnchecked(System.Random rnd, double mu, double sigma)
+        {
+            return Math.Exp(Normal.SampleUnchecked(rnd, mu, sigma));
+        }
+
+        static IEnumerable<double> SamplesUnchecked(System.Random rnd, double mu, double sigma)
+        {
+            return Normal.SamplesUnchecked(rnd, mu, sigma).Select(Math.Exp);
+        }
+
+        static void SamplesUnchecked(System.Random rnd, double[] values, double mu, double sigma)
+        {
+            Normal.SamplesUnchecked(rnd, values, mu, sigma);
+            CommonParallel.For(0, values.Length, 4096, (a, b) =>
+            {
+                for (int i = a; i < b; i++)
+                {
+                    values[i] = Math.Exp(values[i]);
+                }
+            });
         }
 
         /// <summary>
@@ -339,14 +373,17 @@ namespace MathNet.Numerics.Distributions
         /// <remarks>MATLAB: lognpdf</remarks>
         public static double PDF(double mu, double sigma, double x)
         {
-            if (sigma < 0.0) throw new ArgumentOutOfRangeException("sigma", Resources.InvalidDistributionParameters);
+            if (sigma < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             if (x < 0.0)
             {
                 return 0.0;
             }
 
-            var a = (Math.Log(x) - mu) / sigma;
+            var a = (Math.Log(x) - mu)/sigma;
             return Math.Exp(-0.5*a*a)/(x*sigma*Constants.Sqrt2Pi);
         }
 
@@ -360,14 +397,17 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="DensityLn"/>
         public static double PDFLn(double mu, double sigma, double x)
         {
-            if (sigma < 0.0) throw new ArgumentOutOfRangeException("sigma", Resources.InvalidDistributionParameters);
+            if (sigma < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             if (x < 0.0)
             {
-                return Double.NegativeInfinity;
+                return double.NegativeInfinity;
             }
 
-            var a = (Math.Log(x) - mu) / sigma;
+            var a = (Math.Log(x) - mu)/sigma;
             return (-0.5*a*a) - Math.Log(x*sigma) - Constants.LogSqrt2Pi;
         }
 
@@ -382,7 +422,10 @@ namespace MathNet.Numerics.Distributions
         /// <remarks>MATLAB: logncdf</remarks>
         public static double CDF(double mu, double sigma, double x)
         {
-            if (sigma < 0.0) throw new ArgumentOutOfRangeException("sigma", Resources.InvalidDistributionParameters);
+            if (sigma < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return x < 0.0 ? 0.0
                 : 0.5*(1.0 + SpecialFunctions.Erf((Math.Log(x) - mu)/(sigma*Constants.Sqrt2)));
@@ -400,7 +443,10 @@ namespace MathNet.Numerics.Distributions
         /// <remarks>MATLAB: logninv</remarks>
         public static double InvCDF(double mu, double sigma, double p)
         {
-            if (sigma < 0.0) throw new ArgumentOutOfRangeException("sigma", Resources.InvalidDistributionParameters);
+            if (sigma < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return p <= 0.0 ? 0.0 : p >= 1.0 ? double.PositiveInfinity
                 : Math.Exp(mu - sigma*Constants.Sqrt2*SpecialFunctions.ErfcInv(2.0*p));
@@ -415,7 +461,12 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sample from the distribution.</returns>
         public static double Sample(System.Random rnd, double mu, double sigma)
         {
-            return Math.Exp(Normal.Sample(rnd, mu, sigma));
+            if (sigma < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SampleUnchecked(rnd, mu, sigma);
         }
 
         /// <summary>
@@ -427,7 +478,79 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sequence of samples from the distribution.</returns>
         public static IEnumerable<double> Samples(System.Random rnd, double mu, double sigma)
         {
-            return Normal.Samples(rnd, mu, sigma).Select(Math.Exp);
+            if (sigma < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SamplesUnchecked(rnd, mu, sigma);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="rnd">The random number generator to use.</param>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="mu">The log-scale (μ) of the distribution.</param>
+        /// <param name="sigma">The shape (σ) of the distribution. Range: σ ≥ 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(System.Random rnd, double[] values, double mu, double sigma)
+        {
+            if (sigma < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(rnd, values, mu, sigma);
+        }
+
+        /// <summary>
+        /// Generates a sample from the log-normal distribution using the <i>Box-Muller</i> algorithm.
+        /// </summary>
+        /// <param name="mu">The log-scale (μ) of the distribution.</param>
+        /// <param name="sigma">The shape (σ) of the distribution. Range: σ ≥ 0.</param>
+        /// <returns>a sample from the distribution.</returns>
+        public static double Sample(double mu, double sigma)
+        {
+            if (sigma < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SampleUnchecked(SystemRandomSource.Default, mu, sigma);
+        }
+
+        /// <summary>
+        /// Generates a sequence of samples from the log-normal distribution using the <i>Box-Muller</i> algorithm.
+        /// </summary>
+        /// <param name="mu">The log-scale (μ) of the distribution.</param>
+        /// <param name="sigma">The shape (σ) of the distribution. Range: σ ≥ 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static IEnumerable<double> Samples(double mu, double sigma)
+        {
+            if (sigma < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SamplesUnchecked(SystemRandomSource.Default, mu, sigma);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="mu">The log-scale (μ) of the distribution.</param>
+        /// <param name="sigma">The shape (σ) of the distribution. Range: σ ≥ 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(double[] values, double mu, double sigma)
+        {
+            if (sigma < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(SystemRandomSource.Default, values, mu, sigma);
         }
     }
 }

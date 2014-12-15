@@ -4,7 +4,7 @@
 // http://github.com/mathnet/mathnet-numerics
 // http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2014 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -130,6 +130,22 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
         }
 
+        public override void ClearRows(int[] rowIndices)
+        {
+            for (int i = 0; i < rowIndices.Length; i++)
+            {
+                Data[rowIndices[i]] = Zero;
+            }
+        }
+
+        public override void ClearColumns(int[] columnIndices)
+        {
+            for (int i = 0; i < columnIndices.Length; i++)
+            {
+                Data[columnIndices[i]] = Zero;
+            }
+        }
+
         /// <summary>
         /// Indicates whether the current object is equal to another object of the same type.
         /// </summary>
@@ -182,7 +198,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             {
                 for (var i = 0; i < hashNum; i++)
                 {
-                    hash = hash * 31 + Data[i].GetHashCode();
+                    hash = hash*31 + Data[i].GetHashCode();
                 }
             }
             return hash;
@@ -193,7 +209,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         public static DiagonalMatrixStorage<T> OfMatrix(MatrixStorage<T> matrix)
         {
             var storage = new DiagonalMatrixStorage<T>(matrix.RowCount, matrix.ColumnCount);
-            matrix.CopyToUnchecked(storage, skipClearing: true);
+            matrix.CopyToUnchecked(storage, ExistingData.AssumeZeros);
             return storage;
         }
 
@@ -210,9 +226,19 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
                     }
                     else if (!Zero.Equals(array[i, j]))
                     {
-                        throw new IndexOutOfRangeException("Cannot set an off-diagonal element in a diagonal matrix.");
+                        throw new ArgumentException("Cannot set an off-diagonal element in a diagonal matrix.");
                     }
                 }
+            }
+            return storage;
+        }
+
+        public static DiagonalMatrixStorage<T> OfValue(int rows, int columns, T diagonalValue)
+        {
+            var storage = new DiagonalMatrixStorage<T>(rows, columns);
+            for (var i = 0; i < storage.Data.Length; i++)
+            {
+                storage.Data[i] = diagonalValue;
             }
             return storage;
         }
@@ -253,7 +279,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
 
             var storage = new DiagonalMatrixStorage<T>(rows, columns);
-            foreach(var item in data)
+            foreach (var item in data)
             {
                 storage.Data[item.Item1] = item.Item2;
             }
@@ -262,7 +288,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         // MATRIX COPY
 
-        internal override void CopyToUnchecked(MatrixStorage<T> target, bool skipClearing = false)
+        internal override void CopyToUnchecked(MatrixStorage<T> target, ExistingData existingData = ExistingData.Clear)
         {
             var diagonalTarget = target as DiagonalMatrixStorage<T>;
             if (diagonalTarget != null)
@@ -274,20 +300,20 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             var denseTarget = target as DenseColumnMajorMatrixStorage<T>;
             if (denseTarget != null)
             {
-                CopyToUnchecked(denseTarget, skipClearing);
+                CopyToUnchecked(denseTarget, existingData);
                 return;
             }
 
             var sparseTarget = target as SparseCompressedRowMatrixStorage<T>;
             if (sparseTarget != null)
             {
-                CopyToUnchecked(sparseTarget, skipClearing);
+                CopyToUnchecked(sparseTarget, existingData);
                 return;
             }
 
             // FALL BACK
 
-            if (!skipClearing)
+            if (existingData == ExistingData.Clear)
             {
                 target.Clear();
             }
@@ -304,9 +330,9 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             Array.Copy(Data, 0, target.Data, 0, Data.Length);
         }
 
-        void CopyToUnchecked(SparseCompressedRowMatrixStorage<T> target, bool skipClearing)
+        void CopyToUnchecked(SparseCompressedRowMatrixStorage<T> target, ExistingData existingData)
         {
-            if (!skipClearing)
+            if (existingData == ExistingData.Clear)
             {
                 target.Clear();
             }
@@ -317,9 +343,9 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
         }
 
-        void CopyToUnchecked(DenseColumnMajorMatrixStorage<T> target, bool skipClearing)
+        void CopyToUnchecked(DenseColumnMajorMatrixStorage<T> target, ExistingData existingData)
         {
-            if (!skipClearing)
+            if (existingData == ExistingData.Clear)
             {
                 target.Clear();
             }
@@ -333,12 +359,12 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         internal override void CopySubMatrixToUnchecked(MatrixStorage<T> target,
             int sourceRowIndex, int targetRowIndex, int rowCount,
             int sourceColumnIndex, int targetColumnIndex, int columnCount,
-            bool skipClearing = false)
+            ExistingData existingData = ExistingData.Clear)
         {
             var denseTarget = target as DenseColumnMajorMatrixStorage<T>;
             if (denseTarget != null)
             {
-                CopySubMatrixToUnchecked(denseTarget, sourceRowIndex, targetRowIndex, rowCount, sourceColumnIndex, targetColumnIndex, columnCount, skipClearing);
+                CopySubMatrixToUnchecked(denseTarget, sourceRowIndex, targetRowIndex, rowCount, sourceColumnIndex, targetColumnIndex, columnCount, existingData);
                 return;
             }
 
@@ -349,16 +375,40 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
                 return;
             }
 
-            var sparseTarget = target as SparseCompressedRowMatrixStorage<T>;
-            if (sparseTarget != null)
-            {
-                CopySubMatrixToUnchecked(sparseTarget, sourceRowIndex, targetRowIndex, rowCount, sourceColumnIndex, targetColumnIndex, columnCount, skipClearing);
-                return;
-            }
+            // TODO: Proper Sparse Implementation
 
             // FALL BACK
 
-            base.CopySubMatrixToUnchecked(target, sourceRowIndex, targetRowIndex, rowCount, sourceColumnIndex, targetColumnIndex, columnCount, skipClearing);
+            if (existingData == ExistingData.Clear)
+            {
+                target.Clear(targetRowIndex, rowCount, targetColumnIndex, columnCount);
+            }
+
+            if (sourceRowIndex == sourceColumnIndex)
+            {
+                for (var i = 0; i < Math.Min(columnCount, rowCount); i++)
+                {
+                    target.At(targetRowIndex + i, targetColumnIndex + i, Data[sourceRowIndex + i]);
+                }
+            }
+            else if (sourceRowIndex > sourceColumnIndex && sourceColumnIndex + columnCount > sourceRowIndex)
+            {
+                // column by column, but skip resulting zero columns at the beginning
+                int columnInit = sourceRowIndex - sourceColumnIndex;
+                for (var i = 0; i < Math.Min(columnCount - columnInit, rowCount); i++)
+                {
+                    target.At(targetRowIndex + i, columnInit + targetColumnIndex + i, Data[sourceRowIndex + i]);
+                }
+            }
+            else if (sourceRowIndex < sourceColumnIndex && sourceRowIndex + rowCount > sourceColumnIndex)
+            {
+                // row by row, but skip resulting zero rows at the beginning
+                int rowInit = sourceColumnIndex - sourceRowIndex;
+                for (var i = 0; i < Math.Min(columnCount, rowCount - rowInit); i++)
+                {
+                    target.At(rowInit + targetRowIndex + i, targetColumnIndex + i, Data[sourceColumnIndex + i]);
+                }
+            }
         }
 
         void CopySubMatrixToUnchecked(DiagonalMatrixStorage<T> target,
@@ -388,9 +438,9 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         void CopySubMatrixToUnchecked(DenseColumnMajorMatrixStorage<T> target,
             int sourceRowIndex, int targetRowIndex, int rowCount,
             int sourceColumnIndex, int targetColumnIndex, int columnCount,
-            bool skipClearing)
+            ExistingData existingData)
         {
-            if (!skipClearing)
+            if (existingData == ExistingData.Clear)
             {
                 target.Clear(targetRowIndex, rowCount, targetColumnIndex, columnCount);
             }
@@ -400,7 +450,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
                 // column by column, but skip resulting zero columns at the beginning
 
                 int columnInit = sourceRowIndex - sourceColumnIndex;
-                int offset = (columnInit + targetColumnIndex) * target.RowCount + targetRowIndex;
+                int offset = (columnInit + targetColumnIndex)*target.RowCount + targetRowIndex;
                 int step = target.RowCount + 1;
                 int end = Math.Min(columnCount - columnInit, rowCount) + sourceRowIndex;
 
@@ -436,52 +486,13 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
         }
 
-        void CopySubMatrixToUnchecked(SparseCompressedRowMatrixStorage<T> target,
-            int sourceRowIndex, int targetRowIndex, int rowCount,
-            int sourceColumnIndex, int targetColumnIndex, int columnCount,
-            bool skipClearing)
-        {
-            if (!skipClearing)
-            {
-                target.Clear(targetRowIndex, rowCount, targetColumnIndex, columnCount);
-            }
-
-            if (sourceRowIndex == sourceColumnIndex)
-            {
-                for (var i = 0; i < Math.Min(columnCount, rowCount); i++)
-                {
-                    target.At(i + targetRowIndex, i + targetColumnIndex, Data[sourceRowIndex + i]);
-                }
-            }
-            else if (sourceRowIndex > sourceColumnIndex && sourceColumnIndex + columnCount > sourceRowIndex)
-            {
-                // column by column, but skip resulting zero columns at the beginning
-                int columnInit = sourceRowIndex - sourceColumnIndex;
-                for (var i = 0; i < Math.Min(columnCount - columnInit, rowCount); i++)
-                {
-                    target.At(i + targetRowIndex, columnInit + i + targetColumnIndex, Data[sourceRowIndex + i]);
-                }
-            }
-            else if (sourceRowIndex < sourceColumnIndex && sourceRowIndex + rowCount > sourceColumnIndex)
-            {
-                // row by row, but skip resulting zero rows at the beginning
-                int rowInit = sourceColumnIndex - sourceRowIndex;
-                for (var i = 0; i < Math.Min(columnCount, rowCount - rowInit); i++)
-                {
-                    target.At(rowInit + i + targetRowIndex, i + targetColumnIndex, Data[sourceColumnIndex + i]);
-                }
-            }
-
-            // else: all zero, nop
-        }
-
         // ROW COPY
 
         internal override void CopySubRowToUnchecked(VectorStorage<T> target, int rowIndex,
             int sourceColumnIndex, int targetColumnIndex, int columnCount,
-            bool skipClearing = false)
+            ExistingData existingData = ExistingData.Clear)
         {
-            if (!skipClearing)
+            if (existingData == ExistingData.Clear)
             {
                 target.Clear(targetColumnIndex, columnCount);
             }
@@ -496,9 +507,9 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         internal override void CopySubColumnToUnchecked(VectorStorage<T> target, int columnIndex,
             int sourceRowIndex, int targetRowIndex, int rowCount,
-            bool skipClearing = false)
+            ExistingData existingData = ExistingData.Clear)
         {
-            if (!skipClearing)
+            if (existingData == ExistingData.Clear)
             {
                 target.Clear(targetRowIndex, rowCount);
             }
@@ -509,26 +520,33 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
         }
 
+        // TRANSPOSE
+
+        internal override void TransposeToUnchecked(MatrixStorage<T> target, ExistingData existingData = ExistingData.Clear)
+        {
+            CopyToUnchecked(target, existingData);
+        }
+
         // EXTRACT
 
         public override T[] ToRowMajorArray()
         {
-            var ret = new T[RowCount * ColumnCount];
+            var ret = new T[RowCount*ColumnCount];
             var stride = ColumnCount + 1;
             for (int i = 0; i < Data.Length; i++)
             {
-                ret[i * stride] = Data[i];
+                ret[i*stride] = Data[i];
             }
             return ret;
         }
 
         public override T[] ToColumnMajorArray()
         {
-            var ret = new T[RowCount * ColumnCount];
+            var ret = new T[RowCount*ColumnCount];
             var stride = RowCount + 1;
             for (int i = 0; i < Data.Length; i++)
             {
-                ret[i * stride] = Data[i];
+                ret[i*stride] = Data[i];
             }
             return ret;
         }
@@ -587,32 +605,366 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             }
         }
 
-        // FUNCTIONAL COMBINATORS
+        // FUNCTIONAL COMBINATORS: MAP
 
-        public override void MapInplace(Func<T, T> f, bool forceMapZeros = false)
+        public override void MapInplace(Func<T, T> f, Zeros zeros = Zeros.AllowSkip)
         {
-            // we deliberately ignore forceMapZeros since we would not actually
-            // support any non-zero results outside of the diagonal anyway
+            if (zeros == Zeros.Include)
+            {
+                throw new NotSupportedException("Cannot map non-zero off-diagonal values into a diagonal matrix");
+            }
+
             CommonParallel.For(0, Data.Length, 4096, (a, b) =>
+            {
+                for (int i = a; i < b; i++)
                 {
-                    for (int i = a; i < b; i++)
-                    {
-                        Data[i] = f(Data[i]);
-                    }
-                });
+                    Data[i] = f(Data[i]);
+                }
+            });
         }
 
-        public override void MapIndexedInplace(Func<int, int, T, T> f, bool forceMapZeros = false)
+        public override void MapIndexedInplace(Func<int, int, T, T> f, Zeros zeros = Zeros.AllowSkip)
         {
-            // we deliberately ignore forceMapZeros since we would not actually
-            // support any non-zero results outside of the diagonal anyway
+            if (zeros == Zeros.Include)
+            {
+                throw new NotSupportedException("Cannot map non-zero off-diagonal values into a diagonal matrix");
+            }
+
             CommonParallel.For(0, Data.Length, 4096, (a, b) =>
+            {
+                for (int i = a; i < b; i++)
+                {
+                    Data[i] = f(i, i, Data[i]);
+                }
+            });
+        }
+
+        internal override void MapToUnchecked<TU>(MatrixStorage<TU> target, Func<T, TU> f,
+            Zeros zeros = Zeros.AllowSkip, ExistingData existingData = ExistingData.Clear)
+        {
+            var processZeros = zeros == Zeros.Include || !Zero.Equals(f(Zero));
+
+            var diagonalTarget = target as DiagonalMatrixStorage<TU>;
+            if (diagonalTarget != null)
+            {
+                if (processZeros)
+                {
+                    throw new NotSupportedException("Cannot map non-zero off-diagonal values into a diagonal matrix");
+                }
+
+                CommonParallel.For(0, Data.Length, 4096, (a, b) =>
                 {
                     for (int i = a; i < b; i++)
                     {
-                        Data[i] = f(i, i, Data[i]);
+                        diagonalTarget.Data[i] = f(Data[i]);
                     }
                 });
+                return;
+            }
+
+            // FALL BACK
+
+            if (existingData == ExistingData.Clear && !processZeros)
+            {
+                target.Clear();
+            }
+
+            if (processZeros)
+            {
+                for (int j = 0; j < ColumnCount; j++)
+                {
+                    for (int i = 0; i < RowCount; i++)
+                    {
+                        target.At(i, j, f(i == j ? Data[i] : Zero));
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < Data.Length; i++)
+                {
+                    target.At(i, i, f(Data[i]));
+                }
+            }
+        }
+
+        internal override void MapIndexedToUnchecked<TU>(MatrixStorage<TU> target, Func<int, int, T, TU> f,
+            Zeros zeros = Zeros.AllowSkip, ExistingData existingData = ExistingData.Clear)
+        {
+            var processZeros = zeros == Zeros.Include || !Zero.Equals(f(0, 1, Zero));
+
+            var diagonalTarget = target as DiagonalMatrixStorage<TU>;
+            if (diagonalTarget != null)
+            {
+                if (processZeros)
+                {
+                    throw new NotSupportedException("Cannot map non-zero off-diagonal values into a diagonal matrix");
+                }
+
+                CommonParallel.For(0, Data.Length, 4096, (a, b) =>
+                {
+                    for (int i = a; i < b; i++)
+                    {
+                        diagonalTarget.Data[i] = f(i, i, Data[i]);
+                    }
+                });
+                return;
+            }
+
+            // FALL BACK
+
+            if (existingData == ExistingData.Clear && !processZeros)
+            {
+                target.Clear();
+            }
+
+            if (processZeros)
+            {
+                for (int j = 0; j < ColumnCount; j++)
+                {
+                    for (int i = 0; i < RowCount; i++)
+                    {
+                        target.At(i, j, f(i, j, i == j ? Data[i] : Zero));
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < Data.Length; i++)
+                {
+                    target.At(i, i, f(i, i, Data[i]));
+                }
+            }
+        }
+
+        internal override void MapSubMatrixIndexedToUnchecked<TU>(MatrixStorage<TU> target, Func<int, int, T, TU> f,
+            int sourceRowIndex, int targetRowIndex, int rowCount,
+            int sourceColumnIndex, int targetColumnIndex, int columnCount,
+            Zeros zeros = Zeros.AllowSkip, ExistingData existingData = ExistingData.Clear)
+        {
+            var diagonalTarget = target as DiagonalMatrixStorage<TU>;
+            if (diagonalTarget != null)
+            {
+                MapSubMatrixIndexedToUnchecked(diagonalTarget, f, sourceRowIndex, targetRowIndex, rowCount, sourceColumnIndex, targetColumnIndex, columnCount, zeros);
+                return;
+            }
+
+            var denseTarget = target as DenseColumnMajorMatrixStorage<TU>;
+            if (denseTarget != null)
+            {
+                MapSubMatrixIndexedToUnchecked(denseTarget, f, sourceRowIndex, targetRowIndex, rowCount, sourceColumnIndex, targetColumnIndex, columnCount, zeros, existingData);
+                return;
+            }
+
+            // TODO: Proper Sparse Implementation
+
+            // FALL BACK
+
+            if (existingData == ExistingData.Clear)
+            {
+                target.Clear(targetRowIndex, rowCount, targetColumnIndex, columnCount);
+            }
+
+            if (sourceRowIndex == sourceColumnIndex)
+            {
+                int targetRow = targetRowIndex;
+                int targetColumn = targetColumnIndex;
+                for (var i = 0; i < Math.Min(columnCount, rowCount); i++)
+                {
+                    target.At(targetRow, targetColumn, f(targetRow, targetColumn, Data[sourceRowIndex + i]));
+                    targetRow++;
+                    targetColumn++;
+                }
+            }
+            else if (sourceRowIndex > sourceColumnIndex && sourceColumnIndex + columnCount > sourceRowIndex)
+            {
+                // column by column, but skip resulting zero columns at the beginning
+                int columnInit = sourceRowIndex - sourceColumnIndex;
+                int targetRow = targetRowIndex;
+                int targetColumn = targetColumnIndex + columnInit;
+                for (var i = 0; i < Math.Min(columnCount - columnInit, rowCount); i++)
+                {
+                    target.At(targetRow, targetColumn, f(targetRow, targetColumn, Data[sourceRowIndex + i]));
+                    targetRow++;
+                    targetColumn++;
+                }
+            }
+            else if (sourceRowIndex < sourceColumnIndex && sourceRowIndex + rowCount > sourceColumnIndex)
+            {
+                // row by row, but skip resulting zero rows at the beginning
+                int rowInit = sourceColumnIndex - sourceRowIndex;
+                int targetRow = targetRowIndex + rowInit;
+                int targetColumn = targetColumnIndex;
+                for (var i = 0; i < Math.Min(columnCount, rowCount - rowInit); i++)
+                {
+                    target.At(targetRow, targetColumn, f(targetRow, targetColumn, Data[sourceColumnIndex + i]));
+                    targetRow++;
+                    targetColumn++;
+                }
+            }
+        }
+
+        void MapSubMatrixIndexedToUnchecked<TU>(DiagonalMatrixStorage<TU> target, Func<int, int, T, TU> f,
+            int sourceRowIndex, int targetRowIndex, int rowCount,
+            int sourceColumnIndex, int targetColumnIndex, int columnCount,
+            Zeros zeros)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            var processZeros = zeros == Zeros.Include || !Zero.Equals(f(0, 1, Zero));
+            if (processZeros || sourceRowIndex - sourceColumnIndex != targetRowIndex - targetColumnIndex)
+            {
+                throw new NotSupportedException("Cannot map non-zero off-diagonal values into a diagonal matrix");
+            }
+
+            var beginInclusive = Math.Max(sourceRowIndex, sourceColumnIndex);
+            var count = Math.Min(sourceRowIndex + rowCount, sourceColumnIndex + columnCount) - beginInclusive;
+            if (count > 0)
+            {
+                var beginTarget = Math.Max(targetRowIndex, targetColumnIndex);
+                CommonParallel.For(0, count, 4096, (a, b) =>
+                {
+                    int targetIndex = beginTarget + a;
+                    for (int i = a; i < b; i++)
+                    {
+                        target.Data[targetIndex] = f(targetIndex, targetIndex, Data[beginInclusive + i]);
+                        targetIndex++;
+                    }
+                });
+            }
+        }
+
+        void MapSubMatrixIndexedToUnchecked<TU>(DenseColumnMajorMatrixStorage<TU> target, Func<int, int, T, TU> f,
+            int sourceRowIndex, int targetRowIndex, int rowCount,
+            int sourceColumnIndex, int targetColumnIndex, int columnCount,
+            Zeros zeros, ExistingData existingData)
+            where TU : struct, IEquatable<TU>, IFormattable
+        {
+            var processZeros = zeros == Zeros.Include || !Zero.Equals(f(0, 1, Zero));
+            if (existingData == ExistingData.Clear && !processZeros)
+            {
+                target.Clear(targetRowIndex, rowCount, targetColumnIndex, columnCount);
+            }
+
+            if (processZeros)
+            {
+                CommonParallel.For(0, columnCount, Math.Max(4096/rowCount, 32), (a, b) =>
+                {
+                    int sourceColumn = sourceColumnIndex + a;
+                    int targetColumn = targetColumnIndex + a;
+                    for (int j = a; j < b; j++)
+                    {
+                        int targetIndex = targetRowIndex + (j + targetColumnIndex)*target.RowCount;
+                        int sourceRow = sourceRowIndex;
+                        int targetRow = targetRowIndex;
+                        for (int i = 0; i < rowCount; i++)
+                        {
+                            target.Data[targetIndex++] = f(targetRow++, targetColumn, sourceRow++ == sourceColumn ? Data[sourceColumn] : Zero);
+                        }
+                        sourceColumn++;
+                        targetColumn++;
+                    }
+                });
+            }
+            else
+            {
+                if (sourceRowIndex > sourceColumnIndex && sourceColumnIndex + columnCount > sourceRowIndex)
+                {
+                    // column by column, but skip resulting zero columns at the beginning
+
+                    int columnInit = sourceRowIndex - sourceColumnIndex;
+                    int offset = (columnInit + targetColumnIndex)*target.RowCount + targetRowIndex;
+                    int step = target.RowCount + 1;
+                    int count = Math.Min(columnCount - columnInit, rowCount);
+
+                    for (int k = 0, j = offset; k < count; j += step, k++)
+                    {
+                        target.Data[j] = f(targetRowIndex + k, targetColumnIndex + columnInit + k, Data[sourceRowIndex + k]);
+                    }
+                }
+                else if (sourceRowIndex < sourceColumnIndex && sourceRowIndex + rowCount > sourceColumnIndex)
+                {
+                    // row by row, but skip resulting zero rows at the beginning
+
+                    int rowInit = sourceColumnIndex - sourceRowIndex;
+                    int offset = targetColumnIndex*target.RowCount + rowInit + targetRowIndex;
+                    int step = target.RowCount + 1;
+                    int count = Math.Min(columnCount, rowCount - rowInit);
+
+                    for (int k = 0, j = offset; k < count; j += step, k++)
+                    {
+                        target.Data[j] = f(targetRowIndex + rowInit + k, targetColumnIndex + k, Data[sourceColumnIndex + k]);
+                    }
+                }
+                else
+                {
+                    int offset = targetColumnIndex*target.RowCount + targetRowIndex;
+                    int step = target.RowCount + 1;
+                    var count = Math.Min(columnCount, rowCount);
+
+                    for (int k = 0, j = offset; k < count; j += step, k++)
+                    {
+                        target.Data[j] = f(targetRowIndex + k, targetColumnIndex + k, Data[sourceRowIndex + k]);
+                    }
+                }
+            }
+        }
+
+        // FUNCTIONAL COMBINATORS: FOLD
+
+        internal override void FoldByRowUnchecked<TU>(TU[] target, Func<TU, T, TU> f, Func<TU, int, TU> finalize, TU[] state, Zeros zeros = Zeros.AllowSkip)
+        {
+            if (zeros == Zeros.AllowSkip)
+            {
+                for (int k = 0; k < Data.Length; k++)
+                {
+                    target[k] = finalize(f(state[k], Data[k]), 1);
+                }
+
+                for (int k = Data.Length; k < RowCount; k++)
+                {
+                    target[k] = finalize(state[k], 0);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < RowCount; i++)
+                {
+                    TU s = state[i];
+                    for (int j = 0; j < ColumnCount; j++)
+                    {
+                        s = f(s, i == j ? Data[i] : Zero);
+                    }
+                    target[i] = finalize(s, ColumnCount);
+                }
+            }
+        }
+
+        internal override void FoldByColumnUnchecked<TU>(TU[] target, Func<TU, T, TU> f, Func<TU, int, TU> finalize, TU[] state, Zeros zeros = Zeros.AllowSkip)
+        {
+            if (zeros == Zeros.AllowSkip)
+            {
+                for (int k = 0; k < Data.Length; k++)
+                {
+                    target[k] = finalize(f(state[k], Data[k]), 1);
+                }
+
+                for (int k = Data.Length; k < ColumnCount; k++)
+                {
+                    target[k] = finalize(state[k], 0);
+                }
+            }
+            else
+            {
+                for (int j = 0; j < ColumnCount; j++)
+                {
+                    TU s = state[j];
+                    for (int i = 0; i < RowCount; i++)
+                    {
+                        s = f(s, i == j ? Data[i] : Zero);
+                    }
+                    target[j] = finalize(s, RowCount);
+                }
+            }
         }
     }
 }

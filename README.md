@@ -5,43 +5,111 @@ Math.NET Numerics is an opensource **numerical library for .Net, Silverlight and
 
 Math.NET Numerics is the numerical foundation of the Math.NET initiative, aiming to provide methods and algorithms for numerical computations in science, engineering and every day use. Covered topics include special functions, linear algebra, probability models, random numbers, statistics, interpolation, integration, regression, curve fitting, integral transforms (FFT) and more.
 
-In addition to the core .NET package (which is written entirely in C#), Numerics specifically supports F# 3.0 and 3.1 with idiomatic extension modules and maintains mathematical data structures like BigRational that originated in the F# PowerPack. If a performance boost is needed, the managed-code provider backing its linear algebra routines and decompositions can be exchanged with wrappers for optimized native implementations such as Intel MKL.
+In addition to the core .NET package (which is written entirely in C#), Numerics specifically supports F# with idiomatic extension modules and maintains mathematical data structures like BigRational that originated in the F# PowerPack. If a performance boost is needed, the managed-code provider backing its linear algebra routines and decompositions can be exchanged with wrappers for optimized native implementations such as Intel MKL.
 
-Supports Mono and .NET 4.0 and 3.5 on Linux, Mac and Windows, the portable build (PCL) also Silverlight 5, Windows Phone 8, .NET for Windows Store apps and Xamarin Android/iOS.
+Math.NET Numerics is covered under the terms of the [MIT/X11](LICENSE.md) license. You may therefore link to it and use it in both opensource and proprietary software projects. We accept contributions!
 
-Math.NET Numerics is covered under the terms of the [MIT/X11](http://mathnetnumerics.codeplex.com/license) license. You may therefore link to it and use it in both opensource and proprietary software projects. See also the [license](LICENSE.md) file in the root folder.
+* [**Project Website**](http://numerics.mathdotnet.com)
+* [Source Code](http://github.com/mathnet/mathnet-numerics)
+* [NuGet Packages](https://www.nuget.org/profiles/mathnet/) | [Downloads](http://mathnetnumerics.codeplex.com/releases) | [Release Notes](http://numerics.mathdotnet.com/docs/ReleaseNotes.html)
+* [Documentation](http://numerics.mathdotnet.com/docs/) | [API Reference](http://numerics.mathdotnet.com/api/)
+* [Issues & Bugs](http://github.com/mathnet/mathnet-numerics/issues) | [Ideas](http://feedback.mathdotnet.com/forums/2060-math-net-numerics)
+* [Discussions](http://mathnetnumerics.codeplex.com/discussions) | [Stack Overflow](http://stackoverflow.com/questions/tagged/mathdotnet) | [Chat](https://gitter.im/mathnet/mathnet-numerics) | [Twitter](http://twitter.com/MathDotNet) | [Google+](https://plus.google.com/112484567926928665204)
+* [Wikipedia](http://en.wikipedia.org/wiki/Math.NET_Numerics) | [OpenHUB](https://www.ohloh.net/p/mathnet)
 
-Maintained by [Christoph Rüegg](http://christoph.ruegg.name/) but brought to you by all our awesome [contributors](CONTRIBUTORS.md) of Math.NET Numerics and its predecessors [dnAnalytics](http://dnanalytics.codeplex.com/) and [Math.NET Iridium](http://www.mathdotnet.com/Iridium.aspx). We accept contributions!
+### Current Version
 
-**[Release Notes & Changes](RELEASENOTES.md)**
+![Math.NET Numerics Version](http://img.shields.io/nuget/v/MathNet.Numerics.svg?style=flat) Math.NET Numerics  
+![Native Providers Version](http://img.shields.io/nuget/v/MathNet.Numerics.MKL.Win-x64.svg?style=flat) Native Providers  
+![Data Extensions Version](http://img.shields.io/nuget/v/MathNet.Numerics.Data.Text.svg?style=flat) Data Extensions
 
 Installation Instructions
 -------------------------
 
-The recommended way to get Math.NET Numerics is to use NuGet. The following packages are provided and maintained in the public [NuGet Gallery](https://nuget.org/profiles/mathnet/):
+The recommended way to get Math.NET Numerics is to use NuGet. The following packages are provided and maintained in the public [NuGet Gallery](https://nuget.org/profiles/mathnet/). Alternatively you can also download the binaries in Zip packages, available on [CodePlex](http://mathnetnumerics.codeplex.com/releases).
 
-- `MathNet.Numerics` - core package, including .Net 4, .Net 3.5 and portable/PCL builds
-- `MathNet.Numerics.FSharp` - optional extensions for a better F# experience
-- `MathNet.Numerics.Data.Text` - optional extensions for text-based matrix input/output
-- `MathNet.Numerics.Data.Matlab` - optional extensions for MATLAB matrix file input/output
-- `MathNet.Numerics.MKL.Win-x86` - optional Linear Algebra MKL native provider
-- `MathNet.Numerics.MKL.Win-x64` - optional Linear Algebra MKL native provider
-- `MathNet.Numerics.Signed` - strong-named version of the core package *(not recommended)*
-- `MathNet.Numerics.FSharp.Signed` - strong-named version of the F# package *(not recommended)*
+Core Package:
 
-Alternatively you can also download the binaries in Zip packages, available on [CodePlex](http://mathnetnumerics.codeplex.com/releases):
+- **MathNet.Numerics** - core package, including .Net 4, .Net 3.5 and portable/PCL builds.
+- **MathNet.Numerics.FSharp** - optional extensions for a better F# experience. BigRational.
+- **MathNet.Numerics.Signed** - strong-named version of the core package *(not recommended)*.
+- **MathNet.Numerics.FSharp.Signed** - strong-named version of the F# package *(not recommended)*.
 
-- Binaries - core package and F# extensions, including .Net 4, .Net 3.5 and portable/PCL builds.
-- Signed Binaries - strong-named version of the core package *(not recommended)*.
+Alternative Provider Packages (optional):
+
+- **MathNet.Numerics.MKL.Win-x86** - Native Intel MKL Linear Algebra provider (Windows/32-bit).
+- **MathNet.Numerics.MKL.Win-x64** - Native Intel MKL Linear Algebra provider (Windows/64-bit).
+
+Data/IO Packages for reading and writing data (optional):
+
+- **MathNet.Numerics.Data.Text** - Text-based matrix formats like CSV and MatrixMarket.
+- **MathNet.Numerics.Data.Matlab** - MATLAB Level-5 matrix file format.
+
+Platform Support and Dependencies
+---------------------------------
 
 Supported Platforms:
 
 - .Net 4.0, .Net 3.5 and Mono: Windows, Linux and Mac.
-- PCL Portable Profiles 47 and 136: Silverlight 5, Windows Phone 8, .NET for Windows Store apps (Metro).
-- PCL/Xamarin: Andoid, iOS
+- PCL Portable Profiles 7, 47, 78, 259 and 328: Windows 8, Silverlight 5, Windows Phone/SL 8, Windows Phone 8.1.
+- Xamarin: Android, iOS
+
+The F# extensions support a slightly reduced platform set:
+
+- .Net 4.0, .Net 3.5 and Mono: Windows, Linux and Mac.
+- PCL Portable Profile 47: Windows 8, Silverlight 5
+- Xamarin: Android, iOS
+
+Package Dependencies:
+
+- .Net 4.0 and higher, Mono, PCL Profiles: None
+- .Net 3.5: [Task Parallel Library for .NET 3.5](http://www.nuget.org/packages/TaskParallelLibrary)
+- F# on  .Net 4.0 an higher, Mono, PCL Profiles: additionally [FSharp.Core.Microsoft.Signed](http://www.nuget.org/packages/FSharp.Core.Microsoft.Signed)
+
+Framework Dependencies (part of the .NET Framework):
+
+- .Net 4.0 and higher, Mono, PCL profiles 7 and 47: System.Numerics
+- .Net 3.5, PCL profiles 78, 259 and 328: None
+
+Platform Discrepancies
+----------------------
+
+Compilation symbols used to deal with platform differences:
+
+* **NET35** - Some framework attributes are not available and we provide our own Tuple types, generic comparer, LINQ Zip routine and thread partitioner. The crypto random source is not disposable.
+* **PORTABLE** - Some framework attributes are not available and we provide our own parallelization routines and partitioning using TPL Tasks. Reduced globalization and serialization support. Work around some missing routines like `Math.DivRem`, `Array.FindIndex` and `BitConverter`. There is no `ICloneable`. The crypto random source is not available; simpler random seeding.
+* **NOSYSNUMERICS** - The `System.Numerics` framework assembly is not available. We provide our own double-precision complex number type and disable all arbitrary precision numbers support (BigInteger, BigRational).
+* **NET45REFLECTION** - we use the new .Net 4.5 reflection API where type information is split into `Type` and `TypeInfo`.
+* **NATIVEMKL** - we can support the Intel MKL native provider.
+
+Configuration | Net35 | Portable | NoSysNumerics | Net45Reflection | NativeMKL
+------------- | ----- | -------- | ------------- | --------------- | ---------
+.Net 4.0      | -     | -        | -             | -               | Yes
+.Net 3.5      | Yes   | -        | Yes           | -               | -
+Portable 7    | -     | Yes      | -             | Yes             | -
+Portable 47   | -     | Yes      | -             | -               | -
+Portable 78   | -     | Yes      | Yes           | Yes             | -
+Portable 259  | -     | Yes      | Yes           | Yes             | -
+Portable 328  | -     | Yes      | Yes           | -               | -
+
+Compatibility Matrix:
+
+Configuration | Net35 | Net40 | Net45 | SL5  | Win8 | WP8/SL | WP8.1 | Xamarin
+------------- | ----- | ----- | ----- | ---- | ---- | ------ | ----- | -------
+.Net 4.0      | -     | Best  | Best  | -    | -    | -      | -     | -
+.Net 3.5      | Best  | OK    | OK    | -    | -    | -      | -     | -
+Portable 7    | -     | -     | OK    | -    | Best | -      | -     | OK
+Portable 47   | -     | -     | OK    | Best | OK   | -      | -     | OK
+Portable 78   | -     | -     | OK    | -    | OK   | Best   | -     | OK
+Portable 259  | -     | -     | OK    | -    | OK   | OK     | Best  | OK
+Portable 328  | -     | OK    | OK    | OK   | OK   | OK     | OK    | OK
+
 
 Building Math.NET Numerics
 --------------------------
+
+Windows (.Net): [![AppVeyor build status](https://ci.appveyor.com/api/projects/status/79j22c061saisces/branch/master)](https://ci.appveyor.com/project/cdrnet/mathnet-numerics)  
+Linux (Mono): [![Travis Build Status](https://travis-ci.org/mathnet/mathnet-numerics.svg?branch=master)](https://travis-ci.org/mathnet/mathnet-numerics)
 
 If you do not want to use the official binaries, or if you like to modify, debug or contribute, you can compile Math.NET Numerics locally either using Visual Studio or manually with the build scripts.
 
@@ -53,50 +121,36 @@ If you do not want to use the official binaries, or if you like to modify, debug
 
     msbuild MathNet.Numerics.sln            # only build for .Net 4 (main solution)
     msbuild MathNet.Numerics.Net35Only.sln  # only build for .Net 3.5
-    msbuild MathNet.Numerics.Portable.sln   # full build with .Net 4, 3.5 and PCL profiles
+    msbuild MathNet.Numerics.All.sln        # full build with .Net 4, 3.5 and PCL profiles
     xbuild MathNet.Numerics.sln             # build with Mono, e.g. on Linux or Mac
 
 ### How to build with FAKE
 
-    build.cmd   # normal build (.Net 4.0), run unit tests
-    ./build.sh  # normal build (.Net 4.0), run unit tests - on Linux or Mac
+    build.cmd    # normal build (.Net 4.0), run unit tests (.Net on Windows)
+    ./build.sh   # normal build (.Net 4.0), run unit tests (Mono on Linux/Mac, .Net on Windows)
     
-    build.cmd Build        # normal build (.Net 4.0)
-    build.cmd Build full   # full build (.Net 3.5, 4.0, PCL)
-    build.cmd Build net35  # compatibility build (.Net 3.5)
+    build.cmd Build              # normal build (.Net 4.0)
+    build.cmd Build incremental  # normal build, incremental (.Net 4.0)
+    build.cmd Build all          # full build (.Net 4.0, 3.5, PCL)
+    build.cmd Build net35        # compatibility build (.Net 3.5)
+    build.cmd Build signed       # normal build, signed/strong named (.Net 4.0)
     
     build.cmd Test        # normal build (.Net 4.0), run unit tests
-    build.cmd Test full   # full build (.Net 3.5, 4.0, PCL), run all unit tests
-    build.cmd Test net35  # compatibility build (.Net 3.5), run unit tests
+    build.cmd Test quick  # normal build (.Net 4.0), run unit tests except long running ones
+    build.cmd Test all    # full build (.Net 4.0, 3.5, PCL), run all unit tests
+    build.cmd Test net35  # compatibility build (.Net 3.5), run unit testss
     
     build.cmd Clean  # cleanup build artifacts
-    build.cmd Docs   # generate documentation, normal build
-    build.cmd NuGet  # generate NuGet packages, full build
+    build.cmd Docs   # generate documentation
+    build.cmd Api    # generate api reference
+    
+    build.cmd NuGet all     # generate normal NuGet packages (.Net 4.0, 3.5, PCL)
+    build.cmd NuGet signed  # generate signed/strong named NuGet packages (.Net 4.0)
+    
+    build.cmd NativeBuild      # build native providers for all platforms
+    build.cmd NativeTest       # test native providers for all platforms
+    
+    build.cmd All          # build, test, docs, api reference (.Net 4.0)
+    build.cmd All release  # release build
 
 FAKE itself is not included in the repository but it will download and bootstrap itself automatically when build.cmd is run the first time. Note that this step is *not* required when using Visual Studio or `msbuild` directly.
-
-Quick Links
------------
-
-* [**Project Website**](http://numerics.mathdotnet.com)
-* [Source Code](http://github.com/mathnet/mathnet-numerics)
-* [Downloads](http://mathnetnumerics.codeplex.com/releases)
-* [Documentation](http://mathnetnumerics.codeplex.com/documentation), see also new [experimental documentation](http://numerics.mathdotnet.com/docs/)
-* [API Reference](http://numerics.mathdotnet.com/api/)
-* [Code Samples](http://github.com/mathnet/mathnet-numerics/tree/master/src/Examples)
-* [Discussions](http://mathnetnumerics.codeplex.com/discussions)
-* [Work Items and Bug Tracker](http://github.com/mathnet/mathnet-numerics/issues)
-* [Ideas & Feedback](http://feedback.mathdotnet.com/forums/2060-math-net-numerics)
-
-Feeds:
-
-* [Blog Feed](http://christoph.ruegg.name/blog/categories/math-net-numerics/atom.xml)
-* [Activity Feed](http://feeds.mathdotnet.com/MathNetNumericsActivity)
-
-Math.NET Numerics on other sites:
-
-* [Twitter @MathDotNet](http://twitter.com/MathDotNet)
-* [Google+](https://plus.google.com/112484567926928665204)
-* [Ohloh](https://www.ohloh.net/p/mathnet)
-* [Stack Overflow](http://stackoverflow.com/questions/tagged/mathdotnet)
-* [Wikipedia](http://en.wikipedia.org/wiki/Math.NET_Numerics)

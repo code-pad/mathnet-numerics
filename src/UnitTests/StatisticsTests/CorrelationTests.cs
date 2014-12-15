@@ -80,8 +80,8 @@ namespace MathNet.Numerics.UnitTests.StatisticsTests
         [Test]
         public void PearsonCorrelationConsistentWithCovariance()
         {
-            var dataA = _data["lottery"].Data.Take(200);
-            var dataB = _data["lew"].Data.Take(200);
+            var dataA = _data["lottery"].Data.Take(200).ToArray();
+            var dataB = _data["lew"].Data.Take(200).ToArray();
 
             var direct = Correlation.Pearson(dataA, dataB);
             var covariance = dataA.Covariance(dataB)/(dataA.StandardDeviation()*dataB.StandardDeviation());
@@ -97,7 +97,7 @@ namespace MathNet.Numerics.UnitTests.StatisticsTests
         {
             var dataA = _data["lottery"].Data;
             var dataB = _data["lew"].Data;
-            Assert.Throws<ArgumentOutOfRangeException>(() => Correlation.Pearson(dataA, dataB));
+            Assert.That(() => Correlation.Pearson(dataA, dataB), Throws.TypeOf<ArgumentOutOfRangeException>());
         }
 
         /// <summary>
@@ -121,7 +121,7 @@ namespace MathNet.Numerics.UnitTests.StatisticsTests
         {
             var dataA = _data["lottery"].Data;
             var dataB = _data["lew"].Data;
-            Assert.Throws<ArgumentOutOfRangeException>(() => Correlation.Spearman(dataA, dataB));
+            Assert.That(() => Correlation.Spearman(dataA, dataB), Throws.TypeOf<ArgumentOutOfRangeException>());
         }
     }
 #endif

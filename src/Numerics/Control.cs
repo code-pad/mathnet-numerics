@@ -4,7 +4,7 @@
 // http://github.com/mathnet/mathnet-numerics
 // http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2014 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -30,6 +30,7 @@
 
 using MathNet.Numerics.Providers.LinearAlgebra;
 using System;
+using System.Threading.Tasks;
 
 namespace MathNet.Numerics
 {
@@ -38,7 +39,7 @@ namespace MathNet.Numerics
     /// </summary>
     public static class Control
     {
-        static int _numberOfThreads;
+        static int _maxDegreeOfParallelism;
         static int _blockSize;
         static int _parallelizeOrder;
         static int _parallelizeElements;
@@ -53,23 +54,19 @@ namespace MathNet.Numerics
         {
             // Random Numbers & Distributions
             CheckDistributionParameters = true;
-            ThreadSafeRandomNumberGenerators = true;
-
-            // ToString & Formatting
-            MaxToStringColumns = 6;
-            MaxToStringRows = 8;
 
             // Parallelization & Threading
-            _numberOfThreads = 1;
-            DisableParallelization = _numberOfThreads < 2;
+            ThreadSafeRandomNumberGenerators = true;
+            _maxDegreeOfParallelism = Environment.ProcessorCount;
             _blockSize = 512;
             _parallelizeOrder = 64;
             _parallelizeElements = 300;
+            TaskScheduler = TaskScheduler.Default;
             UseSingleThread();
 
             // Linear Algebra Provider
             LinearAlgebraProvider = new ManagedLinearAlgebraProvider();
-#if !PORTABLE
+#if !PORTABLE && NATIVEMKL
             try
             {
                 const string name = "MathNetNumericsLAProvider";
@@ -93,9 +90,18 @@ namespace MathNet.Numerics
 
         public static void UseSingleThread()
         {
-            _numberOfThreads = 1;
-            DisableParallelization = true;
+            _maxDegreeOfParallelism = 1;
             ThreadSafeRandomNumberGenerators = false;
+
+            LinearAlgebraProvider.InitializeVerify();
+        }
+
+        public static void UseMultiThreading()
+        {
+            _maxDegreeOfParallelism = Environment.ProcessorCount;
+            ThreadSafeRandomNumberGenerators = true;
+
+            LinearAlgebraProvider.InitializeVerify();
         }
 
         public static void UseManaged()
@@ -107,6 +113,15 @@ namespace MathNet.Numerics
         public static void UseNativeMKL()
         {
             LinearAlgebraProvider = new Providers.LinearAlgebra.Mkl.MklLinearAlgebraProvider();
+        }
+
+        [CLSCompliant(false)]
+        public static void UseNativeMKL(
+            Providers.LinearAlgebra.Mkl.MklConsistency consistency = Providers.LinearAlgebra.Mkl.MklConsistency.Auto,
+            Providers.LinearAlgebra.Mkl.MklPrecision precision = Providers.LinearAlgebra.Mkl.MklPrecision.Double,
+            Providers.LinearAlgebra.Mkl.MklAccuracy accuracy = Providers.LinearAlgebra.Mkl.MklAccuracy.High)
+        {
+            LinearAlgebraProvider = new Providers.LinearAlgebra.Mkl.MklLinearAlgebraProvider(consistency, precision, accuracy);
         }
 #endif
 
@@ -125,11 +140,6 @@ namespace MathNet.Numerics
         ///     <c>true</c> to use thread safe random number generators ; otherwise, <c>false</c>.
         /// </value>
         public static bool ThreadSafeRandomNumberGenerators { get; set; }
-
-        /// <summary>
-        /// Gets or sets a value indicating whether parallelization shall be disabled globally.
-        /// </summary>
-        public static bool DisableParallelization { get; private set; }
 
         /// <summary>
         /// Gets or sets the linear algebra provider. Consider to use UseNativeMKL or UseManaged instead.
@@ -152,10 +162,22 @@ namespace MathNet.Numerics
         /// when parallelization is applicable.
         /// </summary>
         /// <remarks>Default to the number of processor cores, must be between 1 and 1024 (inclusive).</remarks>
-        public static int NumberOfParallelWorkerThreads
+        public static int MaxDegreeOfParallelism
         {
-            get { return _numberOfThreads; }
+            get { return _maxDegreeOfParallelism; }
+            set
+            {
+                _maxDegreeOfParallelism = Math.Max(1, Math.Min(1024, value));
+
+                // Reinitialize providers:
+                LinearAlgebraProvider.InitializeVerify();
+            }
         }
+
+        /// <summary>
+        /// Gets or sets the TaskScheduler used to schedule the worker tasks.
+        /// </summary>
+        public static TaskScheduler TaskScheduler { get; set; }
 
         /// <summary>
         /// Gets or sets the the block size to use for
@@ -173,7 +195,7 @@ namespace MathNet.Numerics
         /// must calculate multiply in parallel threads.
         /// </summary>
         /// <value>The order. Default 64, must be at least 3.</value>
-        public static int ParallelizeOrder
+        internal static int ParallelizeOrder
         {
             get { return _parallelizeOrder; }
             set { _parallelizeOrder = Math.Max(3, value); }
@@ -184,30 +206,10 @@ namespace MathNet.Numerics
         /// must contain before we multiply threads.
         /// </summary>
         /// <value>Number of elements. Default 300, must be at least 3.</value>
-        public static int ParallelizeElements
+        internal static int ParallelizeElements
         {
             get { return _parallelizeElements; }
             set { _parallelizeElements = Math.Max(3, value); }
         }
-
-        /// <summary>
-        /// Given the number elements, should the operation be parallelized.
-        /// </summary>
-        /// <param name="elements">The number elements to check.</param>
-        /// <returns><c>true</c> if the operation should be parallelized; <c>false</c> otherwise.</returns>
-        public static bool ParallelizeOperation(int elements)
-        {
-            return !DisableParallelization && NumberOfParallelWorkerThreads >= 2 && elements >= ParallelizeElements;
-        }
-
-        /// <summary>
-        /// Maximum number of columns to print in ToString methods by default.
-        /// </summary>
-        public static int MaxToStringColumns { get; set; }
-
-        /// <summary>
-        /// Maximum number of rows to print in ToString methods by default.
-        /// </summary>
-        public static int MaxToStringRows { get; set; }
     }
 }

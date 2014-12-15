@@ -118,6 +118,21 @@ namespace MathNet.Numerics.LinearAlgebra
         protected abstract T DoConjugateDotProduct(Vector<T> other);
 
         /// <summary>
+        /// Computes the outer product M[i,j] = u[i]*v[j] of this and another vector and stores the result in the result matrix.
+        /// </summary>
+        /// <param name="other">The other vector</param>
+        /// <param name="result">The matrix to store the result of the product.</param>
+        protected void DoOuterProduct(Vector<T> other, Matrix<T> result)
+        {
+            var work = Build.Dense(Count);
+            for (var i = 0; i < other.Count; i++)
+            {
+                DoMultiply(other.At(i), work);
+                result.SetColumn(i, work);
+            }
+        }
+
+        /// <summary>
         /// Divides each element of the vector by a scalar and stores the result in the result vector.
         /// </summary>
         /// <param name="divisor">The scalar denominator to use.</param>
@@ -178,6 +193,13 @@ namespace MathNet.Numerics.LinearAlgebra
         protected abstract void DoPointwiseDivide(Vector<T> divisor, Vector<T> result);
 
         /// <summary>
+        /// Pointwise raise this vector to an exponent and store the result into the result vector.
+        /// </summary>
+        /// <param name="exponent">The exponent to raise this vector values to.</param>
+        /// <param name="result">The vector to store the result of the pointwise power.</param>
+        protected abstract void DoPointwisePower(T exponent, Vector<T> result);
+
+        /// <summary>
         /// Pointwise canonical modulus, where the result has the sign of the divisor,
         /// of this vector with another vector and stores the result into the result vector.
         /// </summary>
@@ -192,6 +214,18 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <param name="divisor">The pointwise denominator vector to use.</param>
         /// <param name="result">The result of the modulus.</param>
         protected abstract void DoPointwiseRemainder(Vector<T> divisor, Vector<T> result);
+
+        /// <summary>
+        /// Pointwise applies the exponential function to each value and stores the result into the result vector.
+        /// </summary>
+        /// <param name="result">The vector to store the result.</param>
+        protected abstract void DoPointwiseExp(Vector<T> result);
+
+        /// <summary>
+        /// Pointwise applies the natural logarithm function to each value and stores the result into the result vector.
+        /// </summary>
+        /// <param name="result">The vector to store the result.</param>
+        protected abstract void DoPointwiseLog(Vector<T> result);
 
         /// <summary>
         /// Adds a scalar to each element of the vector.
@@ -543,7 +577,7 @@ namespace MathNet.Numerics.LinearAlgebra
         /// </summary>
         /// <param name="scalar">The scalar to divide.</param>
         /// <returns>A new vector that is the division of the vector and the scalar.</returns>
-        public Vector<T> DevideByThis(T scalar)
+        public Vector<T> DivideByThis(T scalar)
         {
             var result = Build.SameAs(this);
             DoDivideByThis(scalar, result);
@@ -763,6 +797,33 @@ namespace MathNet.Numerics.LinearAlgebra
         }
 
         /// <summary>
+        /// Pointwise raise this vector to an exponent.
+        /// </summary>
+        /// <param name="exponent">The exponent to raise this vector values to.</param>
+        public Vector<T> PointwisePower(T exponent)
+        {
+            var result = Build.SameAs(this);
+            DoPointwisePower(exponent, result);
+            return result;
+        }
+
+        /// <summary>
+        /// Pointwise raise this vector to an exponent and store the result into the result vector.
+        /// </summary>
+        /// <param name="exponent">The exponent to raise this vector values to.</param>
+        /// <param name="result">The matrix to store the result into.</param>
+        /// <exception cref="ArgumentException">If this vector and <paramref name="result"/> are not the same size.</exception>
+        public void PointwisePower(T exponent, Vector<T> result)
+        {
+            if (Count != result.Count)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, "result");
+            }
+
+            DoPointwisePower(exponent, result);
+        }
+
+        /// <summary>
         /// Pointwise canonical modulus, where the result has the sign of the divisor,
         /// of this vector with another vector.
         /// </summary>
@@ -844,33 +905,84 @@ namespace MathNet.Numerics.LinearAlgebra
         }
 
         /// <summary>
-        /// Outer product of two vectors
+        /// Pointwise applies the exponent function to each value.
         /// </summary>
-        /// <param name="u">First vector</param>
-        /// <param name="v">Second vector</param>
-        /// <returns>Matrix M[i,j] = u[i]*v[j] </returns>
-        public static Matrix<T> OuterProduct(Vector<T> u, Vector<T> v)
+        public Vector<T> PointwiseExp()
         {
-            var matrix = Matrix<T>.Build.SameAs(u, u.Count, v.Count);
-            for (var i = 0; i < u.Count; i++)
+            var result = Build.SameAs(this);
+            DoPointwiseExp(result);
+            return result;
+        }
+
+        /// <summary>
+        /// Pointwise applies the exponent function to each value.
+        /// </summary>
+        /// <param name="result">The vector to store the result.</param>
+        /// <exception cref="ArgumentException">If this vector and <paramref name="result"/> are not the same size.</exception>
+        public void PointwiseExp(Vector<T> result)
+        {
+            if (Count != result.Count)
             {
-                matrix.SetRow(i, v.Multiply(u.At(i)));
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, "result");
             }
 
+            DoPointwiseExp(result);
+        }
+
+        /// <summary>
+        /// Pointwise applies the natural logarithm function to each value.
+        /// </summary>
+        public Vector<T> PointwiseLog()
+        {
+            var result = Build.SameAs(this);
+            DoPointwiseLog(result);
+            return result;
+        }
+
+        /// <summary>
+        /// Pointwise applies the natural logarithm function to each value.
+        /// </summary>
+        /// <param name="result">The vector to store the result.</param>
+        /// <exception cref="ArgumentException">If this vector and <paramref name="result"/> are not the same size.</exception>
+        public void PointwiseLog(Vector<T> result)
+        {
+            if (Count != result.Count)
+            {
+                throw new ArgumentException(Resources.ArgumentVectorsSameLength, "result");
+            }
+
+            DoPointwiseLog(result);
+        }
+
+        /// <summary>
+        /// Computes the outer product M[i,j] = u[i]*v[j] of this and another vector.
+        /// </summary>
+        /// <param name="other">The other vector</param>
+        public Matrix<T> OuterProduct(Vector<T> other)
+        {
+            var matrix = Matrix<T>.Build.SameAs(this, Count, other.Count);
+            DoOuterProduct(other, matrix);
             return matrix;
         }
 
         /// <summary>
-        /// Outer product of this and another vector.
+        /// Computes the outer product M[i,j] = u[i]*v[j] of this and another vector and stores the result in the result matrix.
         /// </summary>
-        /// <param name="v">The vector to operate on.</param>
-        /// <returns>
-        /// Matrix M[i,j] = this[i] * v[j].
-        /// </returns>
-        /// <seealso cref="OuterProduct(Vector{T}, Vector{T})"/>
-        public Matrix<T> OuterProduct(Vector<T> v)
+        /// <param name="other">The other vector</param>
+        /// <param name="result">The matrix to store the result of the product.</param>
+        public void OuterProduct(Vector<T> other, Matrix<T> result)
         {
-            return OuterProduct(this, v);
+            if (Count != result.RowCount || other.Count != result.ColumnCount)
+            {
+                throw new ArgumentException(Resources.ArgumentMatrixDimensions, "result");
+            }
+
+            DoOuterProduct(other, result);
+        }
+
+        public static Matrix<T> OuterProduct(Vector<T> u, Vector<T> v)
+        {
+            return u.OuterProduct(v);
         }
 
         /// <summary>
@@ -888,7 +1000,7 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <summary>
         /// Calculates the infinity norm of the vector.
         /// </summary>
-        /// <returns>The square root of the sum of the squared values.</returns>
+        /// <returns>The maximum absolute value.</returns>
         public abstract double InfinityNorm();
 
         /// <summary>

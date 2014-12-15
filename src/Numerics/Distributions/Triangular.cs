@@ -30,8 +30,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MathNet.Numerics.Properties;
 using MathNet.Numerics.Random;
+using MathNet.Numerics.Threading;
 
 namespace MathNet.Numerics.Distributions
 {
@@ -47,9 +49,9 @@ namespace MathNet.Numerics.Distributions
     {
         System.Random _random;
 
-        double _lower;
-        double _upper;
-        double _mode;
+        readonly double _lower;
+        readonly double _upper;
+        readonly double _mode;
 
         /// <summary>
         /// Initializes a new instance of the Triangular class with the given lower bound, upper bound and mode.
@@ -60,8 +62,15 @@ namespace MathNet.Numerics.Distributions
         /// <exception cref="ArgumentException">If the upper bound is smaller than the mode or if the mode is smaller than the lower bound.</exception>
         public Triangular(double lower, double upper, double mode)
         {
+            if (!IsValidParameterSet(lower, upper, mode))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
             _random = SystemRandomSource.Default;
-            SetParameters(lower, upper, mode);
+            _lower = lower;
+            _upper = upper;
+            _mode = mode;
         }
 
         /// <summary>
@@ -74,8 +83,15 @@ namespace MathNet.Numerics.Distributions
         /// <exception cref="ArgumentException">If the upper bound is smaller than the mode or if the mode is smaller than the lower bound.</exception>
         public Triangular(double lower, double upper, double mode, System.Random randomSource)
         {
+            if (!IsValidParameterSet(lower, upper, mode))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
             _random = randomSource ?? SystemRandomSource.Default;
-            SetParameters(lower, upper, mode);
+            _lower = lower;
+            _upper = upper;
+            _mode = mode;
         }
 
         /// <summary>
@@ -88,22 +104,14 @@ namespace MathNet.Numerics.Distributions
         }
 
         /// <summary>
-        /// Sets the parameters of the distribution after checking their validity.
+        /// Tests whether the provided values are valid parameters for this distribution.
         /// </summary>
         /// <param name="lower">Lower bound. Range: lower ≤ mode ≤ upper</param>
         /// <param name="upper">Upper bound. Range: lower ≤ mode ≤ upper</param>
         /// <param name="mode">Mode (most frequent value).  Range: lower ≤ mode ≤ upper</param>
-        /// <exception cref="ArgumentOutOfRangeException">When the parameters are out of range.</exception>
-        void SetParameters(double lower, double upper, double mode)
+        public static bool IsValidParameterSet(double lower, double upper, double mode)
         {
-            if (upper < mode || mode < lower || Double.IsNaN(upper) || Double.IsNaN(lower) || Double.IsNaN(mode))
-            {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
-            }
-
-            _lower = lower;
-            _upper = upper;
-            _mode = mode;
+            return upper >= mode && mode >= lower && !double.IsInfinity(upper) && !double.IsInfinity(lower) && !double.IsInfinity(mode);
         }
 
         /// <summary>
@@ -112,7 +120,6 @@ namespace MathNet.Numerics.Distributions
         public double LowerBound
         {
             get { return _lower; }
-            set { SetParameters(value, _upper, _mode); }
         }
 
         /// <summary>
@@ -121,7 +128,6 @@ namespace MathNet.Numerics.Distributions
         public double UpperBound
         {
             get { return _upper; }
-            set { SetParameters(_lower, value, _mode); }
         }
 
         /// <summary>
@@ -138,7 +144,7 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         public double Mean
         {
-            get { return (_lower + _upper + _mode) / 3.0; }
+            get { return (_lower + _upper + _mode)/3.0; }
         }
 
         /// <summary>
@@ -151,7 +157,7 @@ namespace MathNet.Numerics.Distributions
                 var a = _lower;
                 var b = _upper;
                 var c = _mode;
-                return (a * a + b * b + c * c - a * b - a * c - b * c) / 18.0;
+                return (a*a + b*b + c*c - a*b - a*c - b*c)/18.0;
             }
         }
 
@@ -169,7 +175,7 @@ namespace MathNet.Numerics.Distributions
         /// <value></value>
         public double Entropy
         {
-            get { return 0.5 + Math.Log((_upper - _lower) / 2); }
+            get { return 0.5 + Math.Log((_upper - _lower)/2); }
         }
 
         /// <summary>
@@ -182,9 +188,9 @@ namespace MathNet.Numerics.Distributions
                 var a = _lower;
                 var b = _upper;
                 var c = _mode;
-                var q = Math.Sqrt(2) * (a + b - 2 * c) * (2 * a - b - c) * (a - 2 * b + c);
-                var d = 5 * Math.Pow(a * a + b * b + c * c - a * b - a * c - b * c, 3.0 / 2);
-                return q / d;
+                var q = Math.Sqrt(2)*(a + b - 2*c)*(2*a - b - c)*(a - 2*b + c);
+                var d = 5*Math.Pow(a*a + b*b + c*c - a*b - a*c - b*c, 3.0/2);
+                return q/d;
             }
         }
 
@@ -194,7 +200,6 @@ namespace MathNet.Numerics.Distributions
         public double Mode
         {
             get { return _mode; }
-            set { SetParameters(_lower, _upper, value); }
         }
 
         /// <summary>
@@ -208,9 +213,9 @@ namespace MathNet.Numerics.Distributions
                 var a = _lower;
                 var b = _upper;
                 var c = _mode;
-                return c >= (a + b) / 2
-                    ? a + Math.Sqrt((b - a) * (c - a) / 2)
-                    : b - Math.Sqrt((b - a) * (b - c) / 2);
+                return c >= (a + b)/2
+                    ? a + Math.Sqrt((b - a)*(c - a)/2)
+                    : b - Math.Sqrt((b - a)*(b - c)/2);
             }
         }
 
@@ -281,7 +286,15 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sample from the distribution.</returns>
         public double Sample()
         {
-            return Sample(_random, _lower, _upper, _mode);
+            return SampleUnchecked(_random, _lower, _upper, _mode);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        public void Samples(double[] values)
+        {
+            SamplesUnchecked(_random, values, _lower, _upper, _mode);
         }
 
         /// <summary>
@@ -290,7 +303,40 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sequence of samples from the distribution.</returns>
         public IEnumerable<double> Samples()
         {
-            return Samples(_random, _lower, _upper, _mode);
+            return SamplesUnchecked(_random, _lower, _upper, _mode);
+        }
+
+        static double SampleUnchecked(System.Random rnd, double lower, double upper, double mode)
+        {
+            var u = rnd.NextDouble();
+            return u < (mode - lower)/(upper - lower)
+                ? lower + Math.Sqrt(u*(upper - lower)*(mode - lower))
+                : upper - Math.Sqrt((1 - u)*(upper - lower)*(upper - mode));
+        }
+
+        static IEnumerable<double> SamplesUnchecked(System.Random rnd, double lower, double upper, double mode)
+        {
+            double ml = mode - lower, ul = upper - lower, um = upper - mode;
+            double u = ml/ul, v = ul*ml, w = ul*um;
+
+            return rnd.NextDoubleSequence().Select(x => x < u ? lower + Math.Sqrt(x*v) : upper - Math.Sqrt((1 - x)*w));
+        }
+
+        static void SamplesUnchecked(System.Random rnd, double[] values, double lower, double upper, double mode)
+        {
+            double ml = mode - lower, ul = upper - lower, um = upper - mode;
+            double u = ml/ul, v = ul*ml, w = ul*um;
+
+            rnd.NextDoubles(values);
+            CommonParallel.For(0, values.Length, 4096, (a, b) =>
+            {
+                for (int i = a; i < b; i++)
+                {
+                    values[i] = values[i] < u
+                        ? lower + Math.Sqrt(values[i]*v)
+                        : upper - Math.Sqrt((1 - values[i])*w);
+                }
+            });
         }
 
         /// <summary>
@@ -304,15 +350,25 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="Density"/>
         public static double PDF(double lower, double upper, double mode, double x)
         {
-            if (upper < mode) throw new ArgumentOutOfRangeException("upper", Resources.InvalidDistributionParameters);
-            if (mode < lower) throw new ArgumentOutOfRangeException("lower", Resources.InvalidDistributionParameters); // TODO: Is "lower" the appropriate argument here?
+            if (!(upper >= mode && mode >= lower))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             var a = lower;
             var b = upper;
             var c = mode;
 
-            if (a <= x && x <= c) return 2 * (x - a) / ((b - a) * (c - a));
-            if (c < x & x <= b) return 2 * (b - x) / ((b - a) * (b - c));
+            if (a <= x && x <= c)
+            {
+                return 2*(x - a)/((b - a)*(c - a));
+            }
+
+            if (c < x & x <= b)
+            {
+                return 2*(b - x)/((b - a)*(b - c));
+            }
+
             return 0;
         }
 
@@ -341,16 +397,30 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="CumulativeDistribution"/>
         public static double CDF(double lower, double upper, double mode, double x)
         {
-            if (upper < mode) throw new ArgumentOutOfRangeException("upper", Resources.InvalidDistributionParameters);
-            if (mode < lower) throw new ArgumentOutOfRangeException("lower", Resources.InvalidDistributionParameters); // TODO: Is "lower" the appropriate argument here?
+            if (!(upper >= mode && mode >= lower))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             var a = lower;
             var b = upper;
             var c = mode;
 
-            if (x < a) return 0;
-            if (a <= x && x <= c) return (x - a) * (x - a) / ((b - a) * (c - a));
-            if (c < x & x <= b) return 1 - (b - x) * (b - x) / ((b - a) * (b - c));
+            if (x < a)
+            {
+                return 0;
+            }
+
+            if (a <= x && x <= c)
+            {
+                return (x - a)*(x - a)/((b - a)*(c - a));
+            }
+
+            if (c < x & x <= b)
+            {
+                return 1 - (b - x)*(b - x)/((b - a)*(b - c));
+            }
+
             return 1;
         }
 
@@ -366,17 +436,31 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="InverseCumulativeDistribution"/>
         public static double InvCDF(double lower, double upper, double mode, double p)
         {
-            if (upper < mode) throw new ArgumentOutOfRangeException("upper", Resources.InvalidDistributionParameters);
-            if (mode < lower) throw new ArgumentOutOfRangeException("lower", Resources.InvalidDistributionParameters); // TODO: Is "lower" the appropriate argument here?
+            if (!(upper >= mode && mode >= lower))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             var a = lower;
             var b = upper;
             var c = mode;
 
-            if (p <= 0) return lower;
+            if (p <= 0)
+            {
+                return lower;
+            }
+
             // Taken from http://www.ntrand.com/triangular-distribution/
-            if (p < (c - a) / (b - a)) return a + Math.Sqrt(p * (c - a) * (b - a));
-            if (p < 1) return b - Math.Sqrt((1 - p) * (b - c) * (b - a));
+            if (p < (c - a)/(b - a))
+            {
+                return a + Math.Sqrt(p*(c - a)*(b - a));
+            }
+
+            if (p < 1)
+            {
+                return b - Math.Sqrt((1 - p)*(b - c)*(b - a));
+            }
+
             return upper;
         }
 
@@ -388,16 +472,14 @@ namespace MathNet.Numerics.Distributions
         /// <param name="upper">Upper bound. Range: lower ≤ mode ≤ upper</param>
         /// <param name="mode">Mode (most frequent value).  Range: lower ≤ mode ≤ upper</param>
         /// <returns>a sample from the distribution.</returns>
-        public double Sample(System.Random rnd, double lower, double upper, double mode)
+        public static double Sample(System.Random rnd, double lower, double upper, double mode)
         {
-            var a = lower;
-            var b = upper;
-            var c = mode;
-            var u = rnd.NextDouble();
+            if (!(upper >= mode && mode >= lower))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
-            return u < (c - a) / (b - a)
-                       ? a + Math.Sqrt(u * (b - a) * (c - a))
-                       : b - Math.Sqrt((1 - u) * (b - a) * (b - c)); ;
+            return SampleUnchecked(rnd, lower, upper, mode);
         }
 
         /// <summary>
@@ -408,13 +490,85 @@ namespace MathNet.Numerics.Distributions
         /// <param name="upper">Upper bound. Range: lower ≤ mode ≤ upper</param>
         /// <param name="mode">Mode (most frequent value).  Range: lower ≤ mode ≤ upper</param>
         /// <returns>a sequence of samples from the distribution.</returns>
-        public IEnumerable<double> Samples(System.Random rnd, double lower, double upper, double mode)
+        public static IEnumerable<double> Samples(System.Random rnd, double lower, double upper, double mode)
         {
-            while (true)
+            if (!(upper >= mode && mode >= lower))
             {
-                yield return Sample(rnd, lower, upper, mode);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
+
+            return SamplesUnchecked(rnd, lower, upper, mode);
         }
 
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="rnd">The random number generator to use.</param>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="lower">Lower bound. Range: lower ≤ mode ≤ upper</param>
+        /// <param name="upper">Upper bound. Range: lower ≤ mode ≤ upper</param>
+        /// <param name="mode">Mode (most frequent value).  Range: lower ≤ mode ≤ upper</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(System.Random rnd, double[] values, double lower, double upper, double mode)
+        {
+            if (!(upper >= mode && mode >= lower))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(rnd, values, lower, upper, mode);
+        }
+
+        /// <summary>
+        /// Generates a sample from the <c>Triangular</c> distribution.
+        /// </summary>
+        /// <param name="lower">Lower bound. Range: lower ≤ mode ≤ upper</param>
+        /// <param name="upper">Upper bound. Range: lower ≤ mode ≤ upper</param>
+        /// <param name="mode">Mode (most frequent value).  Range: lower ≤ mode ≤ upper</param>
+        /// <returns>a sample from the distribution.</returns>
+        public static double Sample(double lower, double upper, double mode)
+        {
+            if (!(upper >= mode && mode >= lower))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SampleUnchecked(SystemRandomSource.Default, lower, upper, mode);
+        }
+
+        /// <summary>
+        /// Generates a sequence of samples from the <c>Triangular</c> distribution.
+        /// </summary>
+        /// <param name="lower">Lower bound. Range: lower ≤ mode ≤ upper</param>
+        /// <param name="upper">Upper bound. Range: lower ≤ mode ≤ upper</param>
+        /// <param name="mode">Mode (most frequent value).  Range: lower ≤ mode ≤ upper</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static IEnumerable<double> Samples(double lower, double upper, double mode)
+        {
+            if (!(upper >= mode && mode >= lower))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SamplesUnchecked(SystemRandomSource.Default, lower, upper, mode);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="lower">Lower bound. Range: lower ≤ mode ≤ upper</param>
+        /// <param name="upper">Upper bound. Range: lower ≤ mode ≤ upper</param>
+        /// <param name="mode">Mode (most frequent value).  Range: lower ≤ mode ≤ upper</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(double[] values, double lower, double upper, double mode)
+        {
+            if (!(upper >= mode && mode >= lower))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(SystemRandomSource.Default, values, lower, upper, mode);
+        }
     }
 }

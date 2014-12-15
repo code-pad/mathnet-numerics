@@ -3,7 +3,9 @@
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
 // http://mathnetnumerics.codeplex.com
-// Copyright (c) 2009-2010 Math.NET
+//
+// Copyright (c) 2009-2014 Math.NET
+//
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
 // files (the "Software"), to deal in the Software without
@@ -12,8 +14,10 @@
 // copies of the Software, and to permit persons to whom the
 // Software is furnished to do so, subject to the following
 // conditions:
+//
 // The above copyright notice and this permission notice shall be
 // included in all copies or substantial portions of the Software.
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 // EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 // OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -40,15 +44,6 @@ namespace MathNet.Numerics.UnitTests.DistributionTests.Continuous
     public class ChiSquareTests
     {
         /// <summary>
-        /// Set-up parameters.
-        /// </summary>
-        [SetUp]
-        public void SetUp()
-        {
-            Control.CheckDistributionParameters = true;
-        }
-
-        /// <summary>
         /// Can create chi square.
         /// </summary>
         /// <param name="dof">Degrees of freedom.</param>
@@ -72,7 +67,7 @@ namespace MathNet.Numerics.UnitTests.DistributionTests.Continuous
         [TestCase(Double.NaN)]
         public void ChiSquareCreateFailsWithBadParameters(double dof)
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => new ChiSquared(dof));
+            Assert.That(() => new ChiSquared(dof), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -83,35 +78,6 @@ namespace MathNet.Numerics.UnitTests.DistributionTests.Continuous
         {
             var n = new ChiSquared(1.0);
             Assert.AreEqual("ChiSquared(k = 1)", n.ToString());
-        }
-
-        /// <summary>
-        /// Can set degrees of freedom.
-        /// </summary>
-        /// <param name="dof">Degrees of freedom.</param>
-        [TestCase(0.1)]
-        [TestCase(1.0)]
-        [TestCase(10.0)]
-        [TestCase(Double.PositiveInfinity)]
-        public void CanSetDoF(double dof)
-        {
-            new ChiSquared(1.0)
-            {
-                DegreesOfFreedom = dof
-            };
-        }
-
-        /// <summary>
-        /// Set Degrees of freedom fails with non-positive value.
-        /// </summary>
-        /// <param name="dof">Degrees of freedom.</param>
-        [TestCase(-1.0)]
-        [TestCase(-0.0)]
-        [TestCase(0.0)]
-        public void SetDofFailsWithNonPositiveDoF(double dof)
-        {
-            var n = new ChiSquared(1.0);
-            Assert.Throws<ArgumentOutOfRangeException>(() => n.DegreesOfFreedom = dof);
         }
 
         /// <summary>
@@ -298,7 +264,7 @@ namespace MathNet.Numerics.UnitTests.DistributionTests.Continuous
         [Test]
         public void FailSampleStatic()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => ChiSquared.Sample(new Random(0), -1.0));
+            Assert.That(() => ChiSquared.Sample(new Random(0), -1.0), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -319,7 +285,7 @@ namespace MathNet.Numerics.UnitTests.DistributionTests.Continuous
         {
             var n = new ChiSquared(1.0);
             var ied = n.Samples();
-            ied.Take(5).ToArray();
+            GC.KeepAlive(ied.Take(5).ToArray());
         }
 
         /// <summary>

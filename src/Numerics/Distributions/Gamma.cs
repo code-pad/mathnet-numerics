@@ -4,7 +4,7 @@
 // http://github.com/mathnet/mathnet-numerics
 // http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2014 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -54,8 +54,8 @@ namespace MathNet.Numerics.Distributions
     {
         System.Random _random;
 
-        double _shape;
-        double _rate;
+        readonly double _shape;
+        readonly double _rate;
 
         /// <summary>
         /// Initializes a new instance of the Gamma class.
@@ -64,8 +64,14 @@ namespace MathNet.Numerics.Distributions
         /// <param name="rate">The rate or inverse scale (β) of the Gamma distribution. Range: β ≥ 0.</param>
         public Gamma(double shape, double rate)
         {
+            if (!IsValidParameterSet(shape, rate))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
             _random = SystemRandomSource.Default;
-            SetParameters(shape, rate);
+            _shape = shape;
+            _rate = rate;
         }
 
         /// <summary>
@@ -76,8 +82,14 @@ namespace MathNet.Numerics.Distributions
         /// <param name="randomSource">The random number generator which is used to draw random samples.</param>
         public Gamma(double shape, double rate, System.Random randomSource)
         {
+            if (!IsValidParameterSet(shape, rate))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
             _random = randomSource ?? SystemRandomSource.Default;
-            SetParameters(shape, rate);
+            _shape = shape;
+            _rate = rate;
         }
 
         /// <summary>
@@ -114,20 +126,13 @@ namespace MathNet.Numerics.Distributions
         }
 
         /// <summary>
-        /// Sets the parameters of the distribution after checking their validity.
+        /// Tests whether the provided values are valid parameters for this distribution.
         /// </summary>
         /// <param name="shape">The shape (k, α) of the Gamma distribution. Range: α ≥ 0.</param>
         /// <param name="rate">The rate or inverse scale (β) of the Gamma distribution. Range: β ≥ 0.</param>
-        /// <exception cref="ArgumentOutOfRangeException">When the parameters are out of range.</exception>
-        void SetParameters(double shape, double rate)
+        public static bool IsValidParameterSet(double shape, double rate)
         {
-            if (shape < 0.0 || rate < 0.0 || Double.IsNaN(shape) || Double.IsNaN(rate))
-            {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
-            }
-
-            _shape = shape;
-            _rate = rate;
+            return shape >= 0.0 && rate >= 0.0;
         }
 
         /// <summary>
@@ -136,7 +141,6 @@ namespace MathNet.Numerics.Distributions
         public double Shape
         {
             get { return _shape; }
-            set { SetParameters(value, _rate); }
         }
 
         /// <summary>
@@ -145,7 +149,6 @@ namespace MathNet.Numerics.Distributions
         public double Rate
         {
             get { return _rate; }
-            set { SetParameters(_shape, value); }
         }
 
         /// <summary>
@@ -153,16 +156,7 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         public double Scale
         {
-            get { return 1.0 / _rate; }
-            set
-            {
-                var rate = 1.0 / value;
-                if (Double.IsNegativeInfinity(rate))
-                {
-                    rate = -rate;
-                }
-                SetParameters(_shape, rate);
-            }
+            get { return 1.0/_rate; }
         }
 
         /// <summary>
@@ -181,14 +175,14 @@ namespace MathNet.Numerics.Distributions
         {
             get
             {
-                if (Double.IsPositiveInfinity(_rate))
+                if (double.IsPositiveInfinity(_rate))
                 {
                     return _shape;
                 }
 
                 if (_rate == 0.0 && _shape == 0.0)
                 {
-                    return Double.NaN;
+                    return double.NaN;
                 }
 
                 return _shape/_rate;
@@ -202,14 +196,14 @@ namespace MathNet.Numerics.Distributions
         {
             get
             {
-                if (Double.IsPositiveInfinity(_rate))
+                if (double.IsPositiveInfinity(_rate))
                 {
                     return 0.0;
                 }
 
                 if (_rate == 0.0 && _shape == 0.0)
                 {
-                    return Double.NaN;
+                    return double.NaN;
                 }
 
                 return _shape/(_rate*_rate);
@@ -223,14 +217,14 @@ namespace MathNet.Numerics.Distributions
         {
             get
             {
-                if (Double.IsPositiveInfinity(_rate))
+                if (double.IsPositiveInfinity(_rate))
                 {
                     return 0.0;
                 }
 
                 if (_rate == 0.0 && _shape == 0.0)
                 {
-                    return Double.NaN;
+                    return double.NaN;
                 }
 
                 return Math.Sqrt(_shape/(_rate*_rate));
@@ -244,14 +238,14 @@ namespace MathNet.Numerics.Distributions
         {
             get
             {
-                if (Double.IsPositiveInfinity(_rate))
+                if (double.IsPositiveInfinity(_rate))
                 {
                     return 0.0;
                 }
 
                 if (_rate == 0.0 && _shape == 0.0)
                 {
-                    return Double.NaN;
+                    return double.NaN;
                 }
 
                 return _shape - Math.Log(_rate) + SpecialFunctions.GammaLn(_shape) + ((1.0 - _shape)*SpecialFunctions.DiGamma(_shape));
@@ -265,14 +259,14 @@ namespace MathNet.Numerics.Distributions
         {
             get
             {
-                if (Double.IsPositiveInfinity(_rate))
+                if (double.IsPositiveInfinity(_rate))
                 {
                     return 0.0;
                 }
 
                 if (_rate == 0.0 && _shape == 0.0)
                 {
-                    return Double.NaN;
+                    return double.NaN;
                 }
 
                 return 2.0/Math.Sqrt(_shape);
@@ -286,14 +280,14 @@ namespace MathNet.Numerics.Distributions
         {
             get
             {
-                if (Double.IsPositiveInfinity(_rate))
+                if (double.IsPositiveInfinity(_rate))
                 {
                     return _shape;
                 }
 
                 if (_rate == 0.0 && _shape == 0.0)
                 {
-                    return Double.NaN;
+                    return double.NaN;
                 }
 
                 return (_shape - 1.0)/_rate;
@@ -321,7 +315,7 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         public double Maximum
         {
-            get { return Double.PositiveInfinity; }
+            get { return double.PositiveInfinity; }
         }
 
         /// <summary>
@@ -379,15 +373,20 @@ namespace MathNet.Numerics.Distributions
         }
 
         /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        public void Samples(double[] values)
+        {
+            SamplesUnchecked(_random, values, _shape, _rate);
+        }
+
+        /// <summary>
         /// Generates a sequence of samples from the Gamma distribution.
         /// </summary>
         /// <returns>a sequence of samples from the distribution.</returns>
         public IEnumerable<double> Samples()
         {
-            while (true)
-            {
-                yield return SampleUnchecked(_random, _shape, _rate);
-            }
+            return SamplesUnchecked(_random, _shape, _rate);
         }
 
         /// <summary>
@@ -402,7 +401,7 @@ namespace MathNet.Numerics.Distributions
         /// <returns>A sample from a Gamma distributed random variable.</returns>
         internal static double SampleUnchecked(System.Random rnd, double shape, double rate)
         {
-            if (Double.IsPositiveInfinity(rate))
+            if (double.IsPositiveInfinity(rate))
             {
                 return shape;
             }
@@ -414,33 +413,49 @@ namespace MathNet.Numerics.Distributions
             if (shape < 1.0)
             {
                 a = shape + 1.0;
-                alphafix = Math.Pow(rnd.NextDouble(), 1.0 / shape);
+                alphafix = Math.Pow(rnd.NextDouble(), 1.0/shape);
             }
 
-            var d = a - (1.0 / 3.0);
-            var c = 1.0 / Math.Sqrt(9.0 * d);
+            var d = a - (1.0/3.0);
+            var c = 1.0/Math.Sqrt(9.0*d);
             while (true)
             {
                 var x = Normal.Sample(rnd, 0.0, 1.0);
-                var v = 1.0 + (c * x);
+                var v = 1.0 + (c*x);
                 while (v <= 0.0)
                 {
                     x = Normal.Sample(rnd, 0.0, 1.0);
-                    v = 1.0 + (c * x);
+                    v = 1.0 + (c*x);
                 }
 
-                v = v * v * v;
+                v = v*v*v;
                 var u = rnd.NextDouble();
-                x = x * x;
-                if (u < 1.0 - (0.0331 * x * x))
+                x = x*x;
+                if (u < 1.0 - (0.0331*x*x))
                 {
-                    return alphafix * d * v / rate;
+                    return alphafix*d*v/rate;
                 }
 
-                if (Math.Log(u) < (0.5 * x) + (d * (1.0 - v + Math.Log(v))))
+                if (Math.Log(u) < (0.5*x) + (d*(1.0 - v + Math.Log(v))))
                 {
-                    return alphafix * d * v / rate;
+                    return alphafix*d*v/rate;
                 }
+            }
+        }
+
+        internal static void SamplesUnchecked(System.Random rnd, double[] values, double shape, double rate)
+        {
+            for (int i = 0; i < values.Length; i++)
+            {
+                values[i] = SampleUnchecked(rnd, shape, rate);
+            }
+        }
+
+        internal static IEnumerable<double> SamplesUnchecked(System.Random rnd, double location, double scale)
+        {
+            while (true)
+            {
+                yield return SampleUnchecked(rnd, location, scale);
             }
         }
 
@@ -454,11 +469,25 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="Density"/>
         public static double PDF(double shape, double rate, double x)
         {
-            if (shape < 0.0 || rate < 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (shape < 0.0 || rate < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
-            if (Double.IsPositiveInfinity(rate)) return x == shape ? Double.PositiveInfinity : 0.0;
-            if (shape == 0.0 && rate == 0.0) return 0.0;
-            if (shape == 1.0) return rate*Math.Exp(-rate*x);
+            if (double.IsPositiveInfinity(rate))
+            {
+                return x == shape ? double.PositiveInfinity : 0.0;
+            }
+
+            if (shape == 0.0 && rate == 0.0)
+            {
+                return 0.0;
+            }
+
+            if (shape == 1.0)
+            {
+                return rate*Math.Exp(-rate*x);
+            }
 
             return Math.Pow(rate, shape)*Math.Pow(x, shape - 1.0)*Math.Exp(-rate*x)/SpecialFunctions.Gamma(shape);
         }
@@ -473,11 +502,25 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="DensityLn"/>
         public static double PDFLn(double shape, double rate, double x)
         {
-            if (shape < 0.0 || rate < 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (shape < 0.0 || rate < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
-            if (Double.IsPositiveInfinity(rate)) return x == shape ? Double.PositiveInfinity : Double.NegativeInfinity;
-            if (shape == 0.0 && rate == 0.0) return Double.NegativeInfinity;
-            if (shape == 1.0) return Math.Log(rate) - (rate*x);
+            if (double.IsPositiveInfinity(rate))
+            {
+                return x == shape ? double.PositiveInfinity : double.NegativeInfinity;
+            }
+
+            if (shape == 0.0 && rate == 0.0)
+            {
+                return double.NegativeInfinity;
+            }
+
+            if (shape == 1.0)
+            {
+                return Math.Log(rate) - (rate*x);
+            }
 
             return (shape*Math.Log(rate)) + ((shape - 1.0)*Math.Log(x)) - (rate*x) - SpecialFunctions.GammaLn(shape);
         }
@@ -492,10 +535,20 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="CumulativeDistribution"/>
         public static double CDF(double shape, double rate, double x)
         {
-            if (shape < 0.0 || rate < 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (shape < 0.0 || rate < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
-            if (Double.IsPositiveInfinity(rate)) return x >= shape ? 1.0 : 0.0;
-            if (shape == 0.0 && rate == 0.0) return 0.0;
+            if (double.IsPositiveInfinity(rate))
+            {
+                return x >= shape ? 1.0 : 0.0;
+            }
+
+            if (shape == 0.0 && rate == 0.0)
+            {
+                return 0.0;
+            }
 
             return SpecialFunctions.GammaLowerRegularized(shape, x*rate);
         }
@@ -511,7 +564,10 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="InverseCumulativeDistribution"/>
         public static double InvCDF(double shape, double rate, double p)
         {
-            if (shape < 0.0 || rate < 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (shape < 0.0 || rate < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return SpecialFunctions.GammaLowerRegularizedInv(shape, p)/rate;
         }
@@ -525,7 +581,10 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sample from the distribution.</returns>
         public static double Sample(System.Random rnd, double shape, double rate)
         {
-            if (shape < 0.0 || rate < 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (shape < 0.0 || rate < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return SampleUnchecked(rnd, shape, rate);
         }
@@ -539,12 +598,79 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sequence of samples from the distribution.</returns>
         public static IEnumerable<double> Samples(System.Random rnd, double shape, double rate)
         {
-            if (shape < 0.0 || rate < 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
-
-            while (true)
+            if (shape < 0.0 || rate < 0.0)
             {
-                yield return SampleUnchecked(rnd, shape, rate);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
+
+            return SamplesUnchecked(rnd, shape, rate);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="rnd">The random number generator to use.</param>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="shape">The shape (k, α) of the Gamma distribution. Range: α ≥ 0.</param>
+        /// <param name="rate">The rate or inverse scale (β) of the Gamma distribution. Range: β ≥ 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(System.Random rnd, double[] values, double shape, double rate)
+        {
+            if (shape < 0.0 || rate < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(rnd, values, shape, rate);
+        }
+
+        /// <summary>
+        /// Generates a sample from the Gamma distribution.
+        /// </summary>
+        /// <param name="shape">The shape (k, α) of the Gamma distribution. Range: α ≥ 0.</param>
+        /// <param name="rate">The rate or inverse scale (β) of the Gamma distribution. Range: β ≥ 0.</param>
+        /// <returns>a sample from the distribution.</returns>
+        public static double Sample(double shape, double rate)
+        {
+            if (shape < 0.0 || rate < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SampleUnchecked(SystemRandomSource.Default, shape, rate);
+        }
+
+        /// <summary>
+        /// Generates a sequence of samples from the Gamma distribution.
+        /// </summary>
+        /// <param name="shape">The shape (k, α) of the Gamma distribution. Range: α ≥ 0.</param>
+        /// <param name="rate">The rate or inverse scale (β) of the Gamma distribution. Range: β ≥ 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static IEnumerable<double> Samples(double shape, double rate)
+        {
+            if (shape < 0.0 || rate < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SamplesUnchecked(SystemRandomSource.Default, shape, rate);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="shape">The shape (k, α) of the Gamma distribution. Range: α ≥ 0.</param>
+        /// <param name="rate">The rate or inverse scale (β) of the Gamma distribution. Range: β ≥ 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(double[] values, double shape, double rate)
+        {
+            if (shape < 0.0 || rate < 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(SystemRandomSource.Default, values, shape, rate);
         }
     }
 }

@@ -30,8 +30,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MathNet.Numerics.Properties;
 using MathNet.Numerics.Random;
+using MathNet.Numerics.Threading;
 
 namespace MathNet.Numerics.Distributions
 {
@@ -47,8 +49,8 @@ namespace MathNet.Numerics.Distributions
     {
         System.Random _random;
 
-        double _shape;
-        double _scale;
+        readonly double _shape;
+        readonly double _scale;
 
         /// <summary>
         /// Reusable intermediate result 1 / (_scale ^ _shape)
@@ -57,7 +59,7 @@ namespace MathNet.Numerics.Distributions
         /// By caching this parameter we can get slightly better numerics precision
         /// in certain constellations without any additional computations.
         /// </remarks>
-        double _scalePowShapeInv;
+        readonly double _scalePowShapeInv;
 
         /// <summary>
         /// Initializes a new instance of the Weibull class.
@@ -66,8 +68,15 @@ namespace MathNet.Numerics.Distributions
         /// <param name="scale">The scale (λ) of the Weibull distribution. Range: λ > 0.</param>
         public Weibull(double shape, double scale)
         {
+            if (!IsValidParameterSet(shape, scale))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
             _random = SystemRandomSource.Default;
-            SetParameters(shape, scale);
+            _shape = shape;
+            _scale = scale;
+            _scalePowShapeInv = Math.Pow(scale, -shape);
         }
 
         /// <summary>
@@ -78,8 +87,15 @@ namespace MathNet.Numerics.Distributions
         /// <param name="randomSource">The random number generator which is used to draw random samples.</param>
         public Weibull(double shape, double scale, System.Random randomSource)
         {
+            if (!IsValidParameterSet(shape, scale))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
             _random = randomSource ?? SystemRandomSource.Default;
-            SetParameters(shape, scale);
+            _shape = shape;
+            _scale = scale;
+            _scalePowShapeInv = Math.Pow(scale, -shape);
         }
 
         /// <summary>
@@ -92,21 +108,13 @@ namespace MathNet.Numerics.Distributions
         }
 
         /// <summary>
-        /// Sets the parameters of the distribution after checking their validity.
+        /// Tests whether the provided values are valid parameters for this distribution.
         /// </summary>
         /// <param name="shape">The shape (k) of the Weibull distribution. Range: k > 0.</param>
         /// <param name="scale">The scale (λ) of the Weibull distribution. Range: λ > 0.</param>
-        /// <exception cref="ArgumentOutOfRangeException">When the parameters are out of range.</exception>
-        void SetParameters(double shape, double scale)
+        public static bool IsValidParameterSet(double shape, double scale)
         {
-            if (shape <= 0.0 || scale <= 0.0 || Double.IsNaN(shape) || Double.IsNaN(scale))
-            {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
-            }
-
-            _shape = shape;
-            _scale = scale;
-            _scalePowShapeInv = Math.Pow(scale, -shape);
+            return shape > 0.0 && scale > 0.0;
         }
 
         /// <summary>
@@ -115,7 +123,6 @@ namespace MathNet.Numerics.Distributions
         public double Shape
         {
             get { return _shape; }
-            set { SetParameters(value, _scale); }
         }
 
         /// <summary>
@@ -124,7 +131,6 @@ namespace MathNet.Numerics.Distributions
         public double Scale
         {
             get { return _scale; }
-            set { SetParameters(_shape, value); }
         }
 
         /// <summary>
@@ -220,7 +226,7 @@ namespace MathNet.Numerics.Distributions
         /// </summary>
         public double Maximum
         {
-            get { return Double.PositiveInfinity; }
+            get { return double.PositiveInfinity; }
         }
 
         /// <summary>
@@ -270,23 +276,12 @@ namespace MathNet.Numerics.Distributions
         /// <returns>the cumulative distribution at location <paramref name="x"/>.</returns>
         public double CumulativeDistribution(double x)
         {
-            if (x < 0.0) return 0.0;
+            if (x < 0.0)
+            {
+                return 0.0;
+            }
 
             return -SpecialFunctions.ExponentialMinusOne(-Math.Pow(x, _shape)*_scalePowShapeInv);
-        }
-
-        /// <summary>
-        /// Generates one sample from the Weibull distribution. This method doesn't perform
-        /// any parameter checks.
-        /// </summary>
-        /// <param name="rnd">The random number generator to use.</param>
-        /// <param name="shape">The shape (k) of the Weibull distribution. Range: k > 0.</param>
-        /// <param name="scale">The scale (λ) of the Weibull distribution. Range: λ > 0.</param>
-        /// <returns>A sample from a Weibull distributed random variable.</returns>
-        static double SampleUnchecked(System.Random rnd, double shape, double scale)
-        {
-            var x = rnd.NextDouble();
-            return scale*Math.Pow(-Math.Log(x), 1.0/shape);
         }
 
         /// <summary>
@@ -299,15 +294,45 @@ namespace MathNet.Numerics.Distributions
         }
 
         /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        public void Samples(double[] values)
+        {
+            SamplesUnchecked(_random, values, _shape, _scale);
+        }
+
+        /// <summary>
         /// Generates a sequence of samples from the Weibull distribution.
         /// </summary>
         /// <returns>a sequence of samples from the distribution.</returns>
         public IEnumerable<double> Samples()
         {
-            while (true)
+            return SamplesUnchecked(_random, _shape, _scale);
+        }
+
+        static double SampleUnchecked(System.Random rnd, double shape, double scale)
+        {
+            var x = rnd.NextDouble();
+            return scale*Math.Pow(-Math.Log(x), 1.0/shape);
+        }
+
+        static IEnumerable<double> SamplesUnchecked(System.Random rnd, double shape, double scale)
+        {
+            var exponent = 1.0/shape;
+            return rnd.NextDoubleSequence().Select(x => scale*Math.Pow(-Math.Log(x), exponent));
+        }
+
+        static void SamplesUnchecked(System.Random rnd, double[] values, double shape, double scale)
+        {
+            var exponent = 1.0/shape;
+            rnd.NextDoubles(values);
+            CommonParallel.For(0, values.Length, 4096, (a, b) =>
             {
-                yield return SampleUnchecked(_random, _shape, _scale);
-            }
+                for (int i = a; i < b; i++)
+                {
+                    values[i] = scale*Math.Pow(-Math.Log(values[i]), exponent);
+                }
+            });
         }
 
         /// <summary>
@@ -320,7 +345,10 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="Density"/>
         public static double PDF(double shape, double scale, double x)
         {
-            if (shape <= 0.0 || scale <= 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (shape <= 0.0 || scale <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             if (x >= 0.0)
             {
@@ -348,7 +376,10 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="DensityLn"/>
         public static double PDFLn(double shape, double scale, double x)
         {
-            if (shape <= 0.0 || scale <= 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (shape <= 0.0 || scale <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             if (x >= 0.0)
             {
@@ -376,9 +407,15 @@ namespace MathNet.Numerics.Distributions
         /// <seealso cref="CumulativeDistribution"/>
         public static double CDF(double shape, double scale, double x)
         {
-            if (shape <= 0.0 || scale <= 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (shape <= 0.0 || scale <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
-            if (x < 0.0) return 0.0;
+            if (x < 0.0)
+            {
+                return 0.0;
+            }
 
             return -SpecialFunctions.ExponentialMinusOne(-Math.Pow(x, shape)*Math.Pow(scale, -shape));
         }
@@ -392,7 +429,10 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sample from the distribution.</returns>
         public static double Sample(System.Random rnd, double shape, double scale)
         {
-            if (shape <= 0.0 || scale <= 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+            if (shape <= 0.0 || scale <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
 
             return SampleUnchecked(rnd, shape, scale);
         }
@@ -406,12 +446,79 @@ namespace MathNet.Numerics.Distributions
         /// <returns>a sequence of samples from the distribution.</returns>
         public static IEnumerable<double> Samples(System.Random rnd, double shape, double scale)
         {
-            if (shape <= 0.0 || scale <= 0.0) throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
-
-            while (true)
+            if (shape <= 0.0 || scale <= 0.0)
             {
-                yield return SampleUnchecked(rnd, shape, scale);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
+
+            return SamplesUnchecked(rnd, shape, scale);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="rnd">The random number generator to use.</param>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="shape">The shape (k) of the Weibull distribution. Range: k > 0.</param>
+        /// <param name="scale">The scale (λ) of the Weibull distribution. Range: λ > 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(System.Random rnd, double[] values, double shape, double scale)
+        {
+            if (shape <= 0.0 || scale <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(rnd, values, shape, scale);
+        }
+
+        /// <summary>
+        /// Generates a sample from the Weibull distribution.
+        /// </summary>
+        /// <param name="shape">The shape (k) of the Weibull distribution. Range: k > 0.</param>
+        /// <param name="scale">The scale (λ) of the Weibull distribution. Range: λ > 0.</param>
+        /// <returns>a sample from the distribution.</returns>
+        public static double Sample(double shape, double scale)
+        {
+            if (shape <= 0.0 || scale <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SampleUnchecked(SystemRandomSource.Default, shape, scale);
+        }
+
+        /// <summary>
+        /// Generates a sequence of samples from the Weibull distribution.
+        /// </summary>
+        /// <param name="shape">The shape (k) of the Weibull distribution. Range: k > 0.</param>
+        /// <param name="scale">The scale (λ) of the Weibull distribution. Range: λ > 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static IEnumerable<double> Samples(double shape, double scale)
+        {
+            if (shape <= 0.0 || scale <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            return SamplesUnchecked(SystemRandomSource.Default, shape, scale);
+        }
+
+        /// <summary>
+        /// Fills an array with samples generated from the distribution.
+        /// </summary>
+        /// <param name="values">The array to fill with the samples.</param>
+        /// <param name="shape">The shape (k) of the Weibull distribution. Range: k > 0.</param>
+        /// <param name="scale">The scale (λ) of the Weibull distribution. Range: λ > 0.</param>
+        /// <returns>a sequence of samples from the distribution.</returns>
+        public static void Samples(double[] values, double shape, double scale)
+        {
+            if (shape <= 0.0 || scale <= 0.0)
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
+            SamplesUnchecked(SystemRandomSource.Default, values, shape, scale);
         }
     }
 }

@@ -28,6 +28,8 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 // </copyright>
 
+using System;
+using System.Linq;
 using MathNet.Numerics.Interpolation;
 using NUnit.Framework;
 
@@ -173,5 +175,36 @@ namespace MathNet.Numerics.UnitTests.InterpolationTests
                 Assert.AreEqual(ytest[i], it.Interpolate(xtest[i]), 1e-15, "Linear with {0} samples, sample {1}", samples, i);
             }
         }
+
+        [Test]
+        public void FewSamples()
+        {
+            Assert.That(() => CubicSpline.InterpolateNatural(new double[0], new double[0]), Throws.ArgumentException);
+            Assert.That(() => CubicSpline.InterpolateNatural(new double[1], new double[1]), Throws.ArgumentException);
+            Assert.That(CubicSpline.InterpolateNatural(new[] { 1.0, 2.0 }, new[] { 2.0, 2.0 }).Interpolate(1.0), Is.EqualTo(2.0));
+        }
+
+#if !NET35 && !PORTABLE
+        [Test]
+        public void InterpolateAkimaSorted_MustBeThreadSafe_GitHub219([Values(8, 32, 256, 1024)] int samples)
+        {
+            var x = Generate.LinearSpaced(samples + 1, 0.0, 2.0*Math.PI);
+            var y = new double[samples][];
+            for (var i = 0; i < samples; ++i)
+            {
+                y[i] = x.Select(xx => Math.Sin(xx)/(i + 1)).ToArray();
+            }
+
+            var yipol = new double[samples];
+            System.Threading.Tasks.Parallel.For(0, samples, i =>
+            {
+                var spline = CubicSpline.InterpolateAkimaSorted(x, y[i]);
+                yipol[i] = spline.Interpolate(1.0);
+            });
+
+            CollectionAssert.DoesNotContain(yipol, Double.NaN);
+        }
+#endif
+
     }
 }

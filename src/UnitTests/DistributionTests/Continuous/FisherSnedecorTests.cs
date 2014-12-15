@@ -3,7 +3,9 @@
 // http://numerics.mathdotnet.com
 // http://github.com/mathnet/mathnet-numerics
 // http://mathnetnumerics.codeplex.com
-// Copyright (c) 2009-2010 Math.NET
+//
+// Copyright (c) 2009-2014 Math.NET
+//
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
 // files (the "Software"), to deal in the Software without
@@ -12,8 +14,10 @@
 // copies of the Software, and to permit persons to whom the
 // Software is furnished to do so, subject to the following
 // conditions:
+//
 // The above copyright notice and this permission notice shall be
 // included in all copies or substantial portions of the Software.
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 // EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
 // OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
@@ -37,15 +41,6 @@ namespace MathNet.Numerics.UnitTests.DistributionTests.Continuous
     [TestFixture, Category("Distributions")]
     public class FisherSnedecorTests
     {
-        /// <summary>
-        /// Set-up parameters.
-        /// </summary>
-        [SetUp]
-        public void SetUp()
-        {
-            Control.CheckDistributionParameters = true;
-        }
-
         /// <summary>
         /// Can create fisher snedecor.
         /// </summary>
@@ -93,7 +88,7 @@ namespace MathNet.Numerics.UnitTests.DistributionTests.Continuous
         [TestCase(-10.0, -10.0)]
         public void FisherSnedecorCreateFailsWithBadParameters(double d1, double d2)
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => new FisherSnedecor(d1, d2));
+            Assert.That(() => new FisherSnedecor(d1, d2), Throws.ArgumentException);
         }
 
         /// <summary>
@@ -104,58 +99,6 @@ namespace MathNet.Numerics.UnitTests.DistributionTests.Continuous
         {
             var n = new FisherSnedecor(2d, 1d);
             Assert.AreEqual("FisherSnedecor(d1 = 2, d2 = 1)", n.ToString());
-        }
-
-        /// <summary>
-        /// Can set degree of freedom 1.
-        /// </summary>
-        /// <param name="d1">Degrees of freedom 1</param>
-        [TestCase(0.1)]
-        [TestCase(1.0)]
-        [TestCase(10.0)]
-        [TestCase(Double.PositiveInfinity)]
-        public void CanSetDegreesOfFreedom1(double d1)
-        {
-            new FisherSnedecor(1.0, 2.0)
-            {
-                DegreesOfFreedom1 = d1
-            };
-        }
-
-        /// <summary>
-        /// Set degree of freedom 1 fails with negative value.
-        /// </summary>
-        [Test]
-        public void SetDegreesOfFreedom1FailsWithNegativeDegreeOfFreedom()
-        {
-            var n = new FisherSnedecor(1.0, 2.0);
-            Assert.Throws<ArgumentOutOfRangeException>(() => n.DegreesOfFreedom1 = -1.0);
-        }
-
-        /// <summary>
-        /// Can set degree of freedom 2.
-        /// </summary>
-        /// <param name="d2">Degrees of freedom 2</param>
-        [TestCase(0.1)]
-        [TestCase(1.0)]
-        [TestCase(10.0)]
-        [TestCase(Double.PositiveInfinity)]
-        public void CanSetDegreesOfFreedom2(double d2)
-        {
-            new FisherSnedecor(1.0, 2.0)
-            {
-                DegreesOfFreedom2 = d2
-            };
-        }
-
-        /// <summary>
-        /// Set degree of freedom 2 fails with negative value.
-        /// </summary>
-        [Test]
-        public void SetDegreesOfFreedom2FailsWithNegativeDegreeOfFreedom()
-        {
-            var n = new FisherSnedecor(1.0, 2.0);
-            Assert.Throws<ArgumentOutOfRangeException>(() => n.DegreesOfFreedom2 = -1.0);
         }
 
         /// <summary>
@@ -422,7 +365,7 @@ namespace MathNet.Numerics.UnitTests.DistributionTests.Continuous
         {
             var n = new FisherSnedecor(1.0, 2.0);
             var ied = n.Samples();
-            ied.Take(5).ToArray();
+            GC.KeepAlive(ied.Take(5).ToArray());
         }
 
         [TestCase(0.1, 0.1, 1.0)]

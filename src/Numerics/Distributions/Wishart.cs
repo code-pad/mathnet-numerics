@@ -51,17 +51,17 @@ namespace MathNet.Numerics.Distributions
         /// <summary>
         /// The degrees of freedom for the Wishart distribution.
         /// </summary>
-        double _degreesOfFreedom;
+        readonly double _degreesOfFreedom;
 
         /// <summary>
         /// The scale matrix for the Wishart distribution.
         /// </summary>
-        Matrix<double> _scale;
+        readonly Matrix<double> _scale;
 
         /// <summary>
         /// Caches the Cholesky factorization of the scale matrix.
         /// </summary>
-        Cholesky<double> _chol;
+        readonly Cholesky<double> _chol;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Wishart"/> class.
@@ -70,8 +70,15 @@ namespace MathNet.Numerics.Distributions
         /// <param name="scale">The scale matrix (V) for the Wishart distribution.</param>
         public Wishart(double degreesOfFreedom, Matrix<double> scale)
         {
+            if (Control.CheckDistributionParameters && !IsValidParameterSet(degreesOfFreedom, scale))
+            {
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
+            }
+
             _random = SystemRandomSource.Default;
-            SetParameters(degreesOfFreedom, scale);
+            _degreesOfFreedom = degreesOfFreedom;
+            _scale = scale;
+            _chol = _scale.Cholesky();
         }
 
         /// <summary>
@@ -82,35 +89,23 @@ namespace MathNet.Numerics.Distributions
         /// <param name="randomSource">The random number generator which is used to draw random samples.</param>
         public Wishart(double degreesOfFreedom, Matrix<double> scale, System.Random randomSource)
         {
-            _random = randomSource ?? SystemRandomSource.Default;
-            SetParameters(degreesOfFreedom, scale);
-        }
-
-        /// <summary>
-        /// Sets the parameters of the distribution after checking their validity.
-        /// </summary>
-        /// <param name="degreesOfFreedom">The degrees of freedom (n) for the Wishart distribution.</param>
-        /// <param name="scale">The scale matrix (V) for the Wishart distribution.</param>
-        /// <exception cref="ArgumentOutOfRangeException">When the parameters are out of range.</exception>
-        void SetParameters(double degreesOfFreedom, Matrix<double> scale)
-        {
             if (Control.CheckDistributionParameters && !IsValidParameterSet(degreesOfFreedom, scale))
             {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
 
+            _random = randomSource ?? SystemRandomSource.Default;
             _degreesOfFreedom = degreesOfFreedom;
             _scale = scale;
             _chol = _scale.Cholesky();
         }
 
         /// <summary>
-        /// Checks whether the parameters of the distribution are valid.
+        /// Tests whether the provided values are valid parameters for this distribution.
         /// </summary>
         /// <param name="degreesOfFreedom">The degrees of freedom (n) for the Wishart distribution.</param>
         /// <param name="scale">The scale matrix (V) for the Wishart distribution.</param>
-        /// <returns><c>true</c> when the parameters are valid, <c>false</c> otherwise.</returns>
-        static bool IsValidParameterSet(double degreesOfFreedom, Matrix<double> scale)
+        public static bool IsValidParameterSet(double degreesOfFreedom, Matrix<double> scale)
         {
             if (scale.RowCount != scale.ColumnCount)
             {
@@ -125,7 +120,7 @@ namespace MathNet.Numerics.Distributions
                 }
             }
 
-            if (degreesOfFreedom <= 0.0 || Double.IsNaN(degreesOfFreedom))
+            if (degreesOfFreedom <= 0.0 || double.IsNaN(degreesOfFreedom))
             {
                 return false;
             }
@@ -139,7 +134,6 @@ namespace MathNet.Numerics.Distributions
         public double DegreesOfFreedom
         {
             get { return _degreesOfFreedom; }
-            set { SetParameters(value, _scale); }
         }
 
         /// <summary>
@@ -148,7 +142,6 @@ namespace MathNet.Numerics.Distributions
         public Matrix<double> Scale
         {
             get { return _scale; }
-            set { SetParameters(_degreesOfFreedom, value); }
         }
 
         /// <summary>
@@ -258,7 +251,7 @@ namespace MathNet.Numerics.Distributions
         {
             if (Control.CheckDistributionParameters && !IsValidParameterSet(degreesOfFreedom, scale))
             {
-                throw new ArgumentOutOfRangeException(Resources.InvalidDistributionParameters);
+                throw new ArgumentException(Resources.InvalidDistributionParameters);
             }
 
             return DoSample(rnd, degreesOfFreedom, scale, scale.Cholesky());

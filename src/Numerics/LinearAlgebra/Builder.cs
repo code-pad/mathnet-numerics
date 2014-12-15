@@ -4,7 +4,7 @@
 // http://github.com/mathnet/mathnet-numerics
 // http://mathnetnumerics.codeplex.com
 //
-// Copyright (c) 2009-2013 Math.NET
+// Copyright (c) 2009-2014 Math.NET
 //
 // Permission is hereby granted, free of charge, to any person
 // obtaining a copy of this software and associated documentation
@@ -67,17 +67,17 @@ namespace MathNet.Numerics.LinearAlgebra.Double
 
         public override Matrix<double> Random(int rows, int columns, IContinuousDistribution distribution)
         {
-            return Dense(rows, columns, (i, j) => distribution.Sample());
+            return Dense(rows, columns, Generate.Random(rows*columns, distribution));
         }
 
-        public override IIterationStopCriterium<double>[] IterativeSolverStopCriteria(int maxIterations = 1000)
+        public override IIterationStopCriterion<double>[] IterativeSolverStopCriteria(int maxIterations = 1000)
         {
-            return new IIterationStopCriterium<double>[]
+            return new IIterationStopCriterion<double>[]
             {
-                new FailureStopCriterium<double>(),
-                new DivergenceStopCriterium<double>(),
-                new IterationCountStopCriterium<double>(maxIterations),
-                new ResidualStopCriterium<double>(1e-12)
+                new FailureStopCriterion<double>(),
+                new DivergenceStopCriterion<double>(),
+                new IterationCountStopCriterion<double>(maxIterations),
+                new ResidualStopCriterion<double>(1e-12)
             };
         }
     }
@@ -106,7 +106,7 @@ namespace MathNet.Numerics.LinearAlgebra.Double
 
         public override Vector<double> Random(int length, IContinuousDistribution distribution)
         {
-            return Dense(length, i => distribution.Sample());
+            return Dense(Generate.Random(length, distribution));
         }
     }
 }
@@ -142,17 +142,17 @@ namespace MathNet.Numerics.LinearAlgebra.Single
 
         public override Matrix<float> Random(int rows, int columns, IContinuousDistribution distribution)
         {
-            return Dense(rows, columns, (i, j) => (float) distribution.Sample());
+            return Dense(rows, columns, Generate.RandomSingle(rows*columns, distribution));
         }
 
-        public override IIterationStopCriterium<float>[] IterativeSolverStopCriteria(int maxIterations = 1000)
+        public override IIterationStopCriterion<float>[] IterativeSolverStopCriteria(int maxIterations = 1000)
         {
-            return new IIterationStopCriterium<float>[]
+            return new IIterationStopCriterion<float>[]
             {
-                new FailureStopCriterium<float>(),
-                new DivergenceStopCriterium<float>(),
-                new IterationCountStopCriterium<float>(maxIterations),
-                new ResidualStopCriterium<float>(1e-6)
+                new FailureStopCriterion<float>(),
+                new DivergenceStopCriterion<float>(),
+                new IterationCountStopCriterion<float>(maxIterations),
+                new ResidualStopCriterion<float>(1e-6)
             };
         }
     }
@@ -181,7 +181,7 @@ namespace MathNet.Numerics.LinearAlgebra.Single
 
         public override Vector<float> Random(int length, IContinuousDistribution distribution)
         {
-            return Dense(length, i => (float) distribution.Sample());
+            return Dense(Generate.RandomSingle(length, distribution));
         }
     }
 }
@@ -223,17 +223,17 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
 
         public override Matrix<Complex> Random(int rows, int columns, IContinuousDistribution distribution)
         {
-            return Dense(rows, columns, (i, j) => new Complex(distribution.Sample(), distribution.Sample()));
+            return Dense(rows, columns, Generate.RandomComplex(rows*columns, distribution));
         }
 
-        public override IIterationStopCriterium<Complex>[] IterativeSolverStopCriteria(int maxIterations = 1000)
+        public override IIterationStopCriterion<Complex>[] IterativeSolverStopCriteria(int maxIterations = 1000)
         {
-            return new IIterationStopCriterium<Complex>[]
+            return new IIterationStopCriterion<Complex>[]
             {
-                new FailureStopCriterium<Complex>(),
-                new DivergenceStopCriterium<Complex>(),
-                new IterationCountStopCriterium<Complex>(maxIterations),
-                new ResidualStopCriterium<Complex>(1e-12)
+                new FailureStopCriterion<Complex>(),
+                new DivergenceStopCriterion<Complex>(),
+                new IterationCountStopCriterion<Complex>(maxIterations),
+                new ResidualStopCriterion<Complex>(1e-12)
             };
         }
     }
@@ -262,7 +262,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex
 
         public override Vector<Complex> Random(int length, IContinuousDistribution distribution)
         {
-            return Dense(length, i => new Complex(distribution.Sample(), distribution.Sample()));
+            return Dense(Generate.RandomComplex(length, distribution));
         }
     }
 }
@@ -298,17 +298,17 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
 
         public override Matrix<Numerics.Complex32> Random(int rows, int columns, IContinuousDistribution distribution)
         {
-            return Dense(rows, columns, (i, j) => new Numerics.Complex32((float) distribution.Sample(), (float) distribution.Sample()));
+            return Dense(rows, columns, Generate.RandomComplex32(rows*columns, distribution));
         }
 
-        public override IIterationStopCriterium<Numerics.Complex32>[] IterativeSolverStopCriteria(int maxIterations = 1000)
+        public override IIterationStopCriterion<Numerics.Complex32>[] IterativeSolverStopCriteria(int maxIterations = 1000)
         {
-            return new IIterationStopCriterium<Numerics.Complex32>[]
+            return new IIterationStopCriterion<Numerics.Complex32>[]
             {
-                new FailureStopCriterium<Numerics.Complex32>(),
-                new DivergenceStopCriterium<Numerics.Complex32>(),
-                new IterationCountStopCriterium<Numerics.Complex32>(maxIterations),
-                new ResidualStopCriterium<Numerics.Complex32>(1e-6)
+                new FailureStopCriterion<Numerics.Complex32>(),
+                new DivergenceStopCriterion<Numerics.Complex32>(),
+                new IterationCountStopCriterion<Numerics.Complex32>(maxIterations),
+                new ResidualStopCriterion<Numerics.Complex32>(1e-6)
             };
         }
     }
@@ -337,7 +337,7 @@ namespace MathNet.Numerics.LinearAlgebra.Complex32
 
         public override Vector<Numerics.Complex32> Random(int length, IContinuousDistribution distribution)
         {
-            return Dense(length, i => new Numerics.Complex32((float) distribution.Sample(), (float) distribution.Sample()));
+            return Dense(Generate.RandomComplex32(length, distribution));
         }
     }
 }
@@ -349,6 +349,7 @@ namespace MathNet.Numerics.LinearAlgebra
     using Complex64 = Numerics.Complex;
 #else
     using Complex64 = System.Numerics.Complex;
+
 #endif
 
     /// <summary>
@@ -374,6 +375,8 @@ namespace MathNet.Numerics.LinearAlgebra
         /// </summary>
         public Matrix<T> OfStorage(MatrixStorage<T> storage)
         {
+            if (storage == null) throw new ArgumentNullException("storage");
+
             var dense = storage as DenseColumnMajorMatrixStorage<T>;
             if (dense != null) return Dense(dense);
 
@@ -383,13 +386,14 @@ namespace MathNet.Numerics.LinearAlgebra
             var diagonal = storage as DiagonalMatrixStorage<T>;
             if (diagonal != null) return Diagonal(diagonal);
 
-            throw new NotSupportedException();
+            throw new NotSupportedException(string.Format("Matrix storage type '{0}' is not supported. Only DenseColumnMajorMatrixStorage, SparseCompressedRowMatrixStorage and DiagonalMatrixStorage are supported as this point.", storage.GetType().Name));
         }
 
         /// <summary>
         /// Create a new matrix with the same kind of the provided example.
         /// </summary>
-        public Matrix<T> SameAs(Matrix<T> example, int rows, int columns, bool fullyMutable = false)
+        public Matrix<T> SameAs<TU>(Matrix<TU> example, int rows, int columns, bool fullyMutable = false)
+            where TU : struct, IEquatable<TU>, IFormattable
         {
             var storage = example.Storage;
             if (storage is DenseColumnMajorMatrixStorage<T>) return Dense(rows, columns);
@@ -401,7 +405,8 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <summary>
         /// Create a new matrix with the same kind and dimensions of the provided example.
         /// </summary>
-        public Matrix<T> SameAs(Matrix<T> example)
+        public Matrix<T> SameAs<TU>(Matrix<TU> example)
+            where TU : struct, IEquatable<TU>, IFormattable
         {
             return SameAs(example, example.RowCount, example.ColumnCount);
         }
@@ -521,7 +526,7 @@ namespace MathNet.Numerics.LinearAlgebra
         public Matrix<T> Dense(int rows, int columns, T value)
         {
             if (Zero.Equals(value)) return Dense(rows, columns);
-            return Dense(DenseColumnMajorMatrixStorage<T>.OfInit(rows, columns, (i, j) => value));
+            return Dense(DenseColumnMajorMatrixStorage<T>.OfValue(rows, columns, value));
         }
 
         /// <summary>
@@ -823,7 +828,7 @@ namespace MathNet.Numerics.LinearAlgebra
                 int coloffset = 0;
                 for (int j = 0; j < colspans.Length; j++)
                 {
-                    m.SetSubMatrix(rowoffset, coloffset, matrices[i,j]);
+                    m.SetSubMatrix(rowoffset, coloffset, matrices[i, j]);
                     coloffset += colspans[j];
                 }
                 rowoffset += rowspans[i];
@@ -855,7 +860,7 @@ namespace MathNet.Numerics.LinearAlgebra
         public Matrix<T> Sparse(int rows, int columns, T value)
         {
             if (Zero.Equals(value)) return Sparse(rows, columns);
-            return Sparse(SparseCompressedRowMatrixStorage<T>.OfInit(rows, columns, (i, j) => value));
+            return Sparse(SparseCompressedRowMatrixStorage<T>.OfValue(rows, columns, value));
         }
 
         /// <summary>
@@ -1224,7 +1229,7 @@ namespace MathNet.Numerics.LinearAlgebra
         public Matrix<T> Diagonal(int rows, int columns, T value)
         {
             if (Zero.Equals(value)) return Diagonal(rows, columns);
-            return Diagonal(DiagonalMatrixStorage<T>.OfInit(rows, columns, i => value));
+            return Diagonal(DiagonalMatrixStorage<T>.OfValue(rows, columns, value));
         }
 
         /// <summary>
@@ -1240,7 +1245,7 @@ namespace MathNet.Numerics.LinearAlgebra
         /// </summary>
         public Matrix<T> DiagonalIdentity(int rows, int columns)
         {
-            return Diagonal(DiagonalMatrixStorage<T>.OfInit(rows, columns, i => One));
+            return Diagonal(DiagonalMatrixStorage<T>.OfValue(rows, columns, One));
         }
 
         /// <summary>
@@ -1248,7 +1253,7 @@ namespace MathNet.Numerics.LinearAlgebra
         /// </summary>
         public Matrix<T> DiagonalIdentity(int order)
         {
-            return Diagonal(DiagonalMatrixStorage<T>.OfInit(order, order, i => One));
+            return Diagonal(DiagonalMatrixStorage<T>.OfValue(order, order, One));
         }
 
 
@@ -1300,7 +1305,7 @@ namespace MathNet.Numerics.LinearAlgebra
             return m;
         }
 
-        public abstract IIterationStopCriterium<T>[] IterativeSolverStopCriteria(int maxIterations = 1000);
+        public abstract IIterationStopCriterion<T>[] IterativeSolverStopCriteria(int maxIterations = 1000);
     }
 
     /// <summary>
@@ -1326,19 +1331,22 @@ namespace MathNet.Numerics.LinearAlgebra
         /// </summary>
         public Vector<T> OfStorage(VectorStorage<T> storage)
         {
+            if (storage == null) throw new ArgumentNullException("storage");
+
             var dense = storage as DenseVectorStorage<T>;
             if (dense != null) return Dense(dense);
 
             var sparse = storage as SparseVectorStorage<T>;
             if (sparse != null) return Sparse(sparse);
 
-            throw new NotSupportedException();
+            throw new NotSupportedException(string.Format("Vector storage type '{0}' is not supported. Only DenseVectorStorage and SparseVectorStorage are supported as this point.", storage.GetType().Name));
         }
 
         /// <summary>
         /// Create a new vector with the same kind of the provided example.
         /// </summary>
-        public Vector<T> SameAs(Vector<T> example, int length)
+        public Vector<T> SameAs<TU>(Vector<TU> example, int length)
+            where TU : struct, IEquatable<TU>, IFormattable
         {
             return example.Storage.IsDense ? Dense(length) : Sparse(length);
         }
@@ -1346,7 +1354,8 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <summary>
         /// Create a new vector with the same kind and dimension of the provided example.
         /// </summary>
-        public Vector<T> SameAs(Vector<T> example)
+        public Vector<T> SameAs<TU>(Vector<TU> example)
+            where TU : struct, IEquatable<TU>, IFormattable
         {
             return example.Storage.IsDense ? Dense(example.Count) : Sparse(example.Count);
         }
@@ -1354,7 +1363,8 @@ namespace MathNet.Numerics.LinearAlgebra
         /// <summary>
         /// Create a new vector with the same kind of the provided example.
         /// </summary>
-        public Vector<T> SameAs(Matrix<T> example, int length)
+        public Vector<T> SameAs<TU>(Matrix<TU> example, int length)
+            where TU : struct, IEquatable<TU>, IFormattable
         {
             return example.Storage.IsDense ? Dense(length) : Sparse(length);
         }
@@ -1435,7 +1445,7 @@ namespace MathNet.Numerics.LinearAlgebra
         public Vector<T> Dense(int length, T value)
         {
             if (Zero.Equals(value)) return Dense(length);
-            return Dense(DenseVectorStorage<T>.OfInit(length, i => value));
+            return Dense(DenseVectorStorage<T>.OfValue(length, value));
         }
 
         /// <summary>
@@ -1510,7 +1520,7 @@ namespace MathNet.Numerics.LinearAlgebra
         public Vector<T> Sparse(int length, T value)
         {
             if (Zero.Equals(value)) return Sparse(length);
-            return Sparse(SparseVectorStorage<T>.OfInit(length, i => value));
+            return Sparse(SparseVectorStorage<T>.OfValue(length, value));
         }
 
         /// <summary>
@@ -1572,32 +1582,32 @@ namespace MathNet.Numerics.LinearAlgebra
             if (typeof (T) == typeof (Complex64))
             {
                 return new Tuple<MatrixBuilder<T>, VectorBuilder<T>>(
-                    (MatrixBuilder<T>) (object) new Complex.MatrixBuilder(),
-                    (VectorBuilder<T>) (object) new Complex.VectorBuilder());
+                    (MatrixBuilder<T>)(object)new Complex.MatrixBuilder(),
+                    (VectorBuilder<T>)(object)new Complex.VectorBuilder());
             }
 
             if (typeof (T) == typeof (Numerics.Complex32))
             {
                 return new Tuple<MatrixBuilder<T>, VectorBuilder<T>>(
-                    (MatrixBuilder<T>) (object) new Complex32.MatrixBuilder(),
-                    (VectorBuilder<T>) (object) new Complex32.VectorBuilder());
+                    (MatrixBuilder<T>)(object)new Complex32.MatrixBuilder(),
+                    (VectorBuilder<T>)(object)new Complex32.VectorBuilder());
             }
 
             if (typeof (T) == typeof (double))
             {
                 return new Tuple<MatrixBuilder<T>, VectorBuilder<T>>(
-                    (MatrixBuilder<T>) (object) new Double.MatrixBuilder(),
-                    (VectorBuilder<T>) (object) new Double.VectorBuilder());
+                    (MatrixBuilder<T>)(object)new Double.MatrixBuilder(),
+                    (VectorBuilder<T>)(object)new Double.VectorBuilder());
             }
 
             if (typeof (T) == typeof (float))
             {
                 return new Tuple<MatrixBuilder<T>, VectorBuilder<T>>(
-                    (MatrixBuilder<T>) (object) new Single.MatrixBuilder(),
-                    (VectorBuilder<T>) (object) new Single.VectorBuilder());
+                    (MatrixBuilder<T>)(object)new Single.MatrixBuilder(),
+                    (VectorBuilder<T>)(object)new Single.VectorBuilder());
             }
 
-            throw new NotSupportedException();
+            throw new NotSupportedException(string.Format("Matrices and vectors of type '{0}' are not supported. Only Double, Single, Complex or Complex32 are supported at this point.", typeof(T).Name));
         }
 
         public static void Register(MatrixBuilder<T> matrixBuilder, VectorBuilder<T> vectorBuilder)

@@ -30,8 +30,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using MathNet.Numerics.Properties;
+using MathNet.Numerics.Threading;
 
 namespace MathNet.Numerics.LinearAlgebra.Storage
 {
@@ -296,8 +298,36 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
         public static SparseVectorStorage<T> OfVector(VectorStorage<T> vector)
         {
             var storage = new SparseVectorStorage<T>(vector.Length);
-            vector.CopyToUnchecked(storage, skipClearing: true);
+            vector.CopyToUnchecked(storage, ExistingData.AssumeZeros);
             return storage;
+        }
+
+        public static SparseVectorStorage<T> OfValue(int length, T value)
+        {
+            if (Zero.Equals(value))
+            {
+                return new SparseVectorStorage<T>(length);
+            }
+
+            if (length < 1)
+            {
+                throw new ArgumentOutOfRangeException("length", string.Format(Resources.ArgumentLessThanOne, length));
+            }
+
+            var indices = new int[length];
+            var values = new T[length];
+            for (int i = 0; i < indices.Length; i++)
+            {
+                indices[i] = i;
+                values[i] = value;
+            }
+
+            return new SparseVectorStorage<T>(length)
+            {
+                Indices = indices,
+                Values = values,
+                ValueCount = length
+            };
         }
 
         public static SparseVectorStorage<T> OfInit(int length, Func<int, T> init)
@@ -387,7 +417,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         // VECTOR COPY
 
-        internal override void CopyToUnchecked(VectorStorage<T> target, bool skipClearing = false)
+        internal override void CopyToUnchecked(VectorStorage<T> target, ExistingData existingData = ExistingData.Clear)
         {
             var sparseTarget = target as SparseVectorStorage<T>;
             if (sparseTarget != null)
@@ -398,7 +428,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
             // FALL BACK
 
-            if (!skipClearing)
+            if (existingData == ExistingData.Clear)
             {
                 target.Clear();
             }
@@ -438,9 +468,9 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         // Row COPY
 
-        internal override void CopyToRowUnchecked(MatrixStorage<T> target, int rowIndex, bool skipClearing = false)
+        internal override void CopyToRowUnchecked(MatrixStorage<T> target, int rowIndex, ExistingData existingData = ExistingData.Clear)
         {
-            if (!skipClearing)
+            if (existingData == ExistingData.Clear)
             {
                 target.Clear(rowIndex, 1, 0, Length);
             }
@@ -458,9 +488,9 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         // COLUMN COPY
 
-        internal override void CopyToColumnUnchecked(MatrixStorage<T> target, int columnIndex, bool skipClearing = false)
+        internal override void CopyToColumnUnchecked(MatrixStorage<T> target, int columnIndex, ExistingData existingData = ExistingData.Clear)
         {
-            if (!skipClearing)
+            if (existingData == ExistingData.Clear)
             {
                 target.Clear(0, Length, columnIndex, 1);
             }
@@ -480,12 +510,12 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         internal override void CopySubVectorToUnchecked(VectorStorage<T> target,
             int sourceIndex, int targetIndex, int count,
-            bool skipClearing = false)
+            ExistingData existingData = ExistingData.Clear)
         {
             var sparseTarget = target as SparseVectorStorage<T>;
             if (sparseTarget != null)
             {
-                CopySubVectorToUnchecked(sparseTarget, sourceIndex, targetIndex, count, skipClearing);
+                CopySubVectorToUnchecked(sparseTarget, sourceIndex, targetIndex, count, existingData);
                 return;
             }
 
@@ -498,7 +528,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
             if (sourceFirst < 0) sourceFirst = ~sourceFirst;
             if (sourceLast < 0) sourceLast = ~sourceLast - 1;
 
-            if (!skipClearing)
+            if (existingData == ExistingData.Clear)
             {
                 target.Clear(targetIndex, count);
             }
@@ -511,7 +541,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         void CopySubVectorToUnchecked(SparseVectorStorage<T> target,
             int sourceIndex, int targetIndex, int count,
-            bool skipClearing)
+            ExistingData existingData)
         {
             var offset = targetIndex - sourceIndex;
 
@@ -533,7 +563,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
                     indices[i] = Indices[i + sourceFirst];
                 }
 
-                if (!skipClearing)
+                if (existingData == ExistingData.Clear)
                 {
                     Clear(targetIndex, count);
                 }
@@ -565,7 +595,7 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
                 return;
             }
 
-            if (!skipClearing)
+            if (existingData == ExistingData.Clear)
             {
                 target.Clear(targetIndex, count);
             }
@@ -618,72 +648,377 @@ namespace MathNet.Numerics.LinearAlgebra.Storage
 
         // FUNCTIONAL COMBINATORS
 
-        public override void MapInplace(Func<T, T> f, bool forceMapZeros = false)
+        internal override void MapToUnchecked<TU>(VectorStorage<TU> target, Func<T, TU> f,
+            Zeros zeros = Zeros.AllowSkip, ExistingData existingData = ExistingData.Clear)
         {
-            var indices = new List<int>();
-            var values = new List<T>();
-            if (forceMapZeros || !Zero.Equals(f(Zero)))
+            var sparseTarget = target as SparseVectorStorage<TU>;
+            if (sparseTarget != null)
             {
-                int k = 0;
-                for (int i = 0; i < Length; i++)
+                var indices = new List<int>();
+                var values = new List<TU>();
+                if (zeros == Zeros.Include || !Zero.Equals(f(Zero)))
                 {
-                    var item = k < ValueCount && (Indices[k]) == i ? f(Values[k++]) : f(Zero);
-                    if (!Zero.Equals(item))
+                    int k = 0;
+                    for (int i = 0; i < Length; i++)
                     {
-                        values.Add(item);
-                        indices.Add(i);
+                        var item = k < ValueCount && (Indices[k]) == i ? f(Values[k++]) : f(Zero);
+                        if (!Zero.Equals(item))
+                        {
+                            values.Add(item);
+                            indices.Add(i);
+                        }
                     }
                 }
-            }
-            else
-            {
-                for (int i = 0; i < ValueCount; i++)
+                else
                 {
-                    var item = f(Values[i]);
-                    if (!Zero.Equals(item))
+                    for (int i = 0; i < ValueCount; i++)
                     {
-                        values.Add(item);
-                        indices.Add(Indices[i]);
+                        var item = f(Values[i]);
+                        if (!Zero.Equals(item))
+                        {
+                            values.Add(item);
+                            indices.Add(Indices[i]);
+                        }
                     }
                 }
+                sparseTarget.Indices = indices.ToArray();
+                sparseTarget.Values = values.ToArray();
+                sparseTarget.ValueCount = values.Count;
+                return;
             }
-            Indices = indices.ToArray();
-            Values = values.ToArray();
-            ValueCount = values.Count;
+
+            var denseTarget = target as DenseVectorStorage<TU>;
+            if (denseTarget != null)
+            {
+                if (existingData == ExistingData.Clear)
+                {
+                    denseTarget.Clear();
+                }
+
+                if (zeros == Zeros.Include || !Zero.Equals(f(Zero)))
+                {
+                    int k = 0;
+                    for (int i = 0; i < Length; i++)
+                    {
+                        denseTarget.Data[i] = k < ValueCount && (Indices[k]) == i
+                            ? f(Values[k++])
+                            : f(Zero);
+                    }
+                }
+                else
+                {
+                    CommonParallel.For(0, ValueCount, 4096, (a, b) =>
+                    {
+                        for (int i = a; i < b; i++)
+                        {
+                            denseTarget.Data[Indices[i]] = f(Values[i]);
+                        }
+                    });
+                }
+                return;
+            }
+
+            // FALL BACK
+
+            base.MapToUnchecked(target, f, zeros, existingData);
         }
 
-        public override void MapIndexedInplace(Func<int, T, T> f, bool forceMapZeros = false)
+        internal override void MapIndexedToUnchecked<TU>(VectorStorage<TU> target, Func<int, T, TU> f,
+            Zeros zeros = Zeros.AllowSkip, ExistingData existingData = ExistingData.Clear)
         {
-            var indices = new List<int>();
-            var values = new List<T>();
-            if (forceMapZeros || !Zero.Equals(f(0, Zero)))
+            var sparseTarget = target as SparseVectorStorage<TU>;
+            if (sparseTarget != null)
             {
+                var indices = new List<int>();
+                var values = new List<TU>();
+                if (zeros == Zeros.Include || !Zero.Equals(f(0, Zero)))
+                {
+                    int k = 0;
+                    for (int i = 0; i < Length; i++)
+                    {
+                        var item = k < ValueCount && (Indices[k]) == i ? f(i, Values[k++]) : f(i, Zero);
+                        if (!Zero.Equals(item))
+                        {
+                            values.Add(item);
+                            indices.Add(i);
+                        }
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < ValueCount; i++)
+                    {
+                        var item = f(Indices[i], Values[i]);
+                        if (!Zero.Equals(item))
+                        {
+                            values.Add(item);
+                            indices.Add(Indices[i]);
+                        }
+                    }
+                }
+                sparseTarget.Indices = indices.ToArray();
+                sparseTarget.Values = values.ToArray();
+                sparseTarget.ValueCount = values.Count;
+                return;
+            }
+
+            var denseTarget = target as DenseVectorStorage<TU>;
+            if (denseTarget != null)
+            {
+                if (existingData == ExistingData.Clear)
+                {
+                    denseTarget.Clear();
+                }
+
+                if (zeros == Zeros.Include || !Zero.Equals(f(0, Zero)))
+                {
+                    int k = 0;
+                    for (int i = 0; i < Length; i++)
+                    {
+                        denseTarget.Data[i] = k < ValueCount && (Indices[k]) == i
+                            ? f(i, Values[k++])
+                            : f(i, Zero);
+                    }
+                }
+                else
+                {
+                    CommonParallel.For(0, ValueCount, 4096, (a, b) =>
+                    {
+                        for (int i = a; i < b; i++)
+                        {
+                            denseTarget.Data[Indices[i]] = f(Indices[i], Values[i]);
+                        }
+                    });
+                }
+                return;
+            }
+
+            // FALL BACK
+
+            base.MapIndexedToUnchecked(target, f, zeros, existingData);
+        }
+
+        internal override void Map2ToUnchecked(VectorStorage<T> target, VectorStorage<T> other, Func<T, T, T> f, Zeros zeros = Zeros.AllowSkip, ExistingData existingData = ExistingData.Clear)
+        {
+            var processZeros = zeros == Zeros.Include || !Zero.Equals(f(Zero, Zero));
+
+            var denseTarget = target as DenseVectorStorage<T>;
+            var denseOther = other as DenseVectorStorage<T>;
+
+            if (denseTarget == null && (denseOther != null || processZeros))
+            {
+                // The handling is effectively dense but we're supposed to push
+                // to a sparse target. Let's use a dense target instead,
+                // then copy it normalized back to the sparse target.
+                var intermediate = new DenseVectorStorage<T>(target.Length);
+                Map2ToUnchecked(intermediate, other, f, zeros, ExistingData.AssumeZeros);
+                intermediate.CopyTo(target, existingData);
+                return;
+            }
+
+            if (denseOther != null)
+            {
+                T[] targetData = denseTarget.Data;
+                T[] otherData = denseOther.Data;
+
                 int k = 0;
-                for (int i = 0; i < Length; i++)
+                for (int i = 0; i < otherData.Length; i++)
                 {
-                    var item = k < ValueCount && (Indices[k]) == i ? f(i, Values[k++]) : f(i, Zero);
-                    if (!Zero.Equals(item))
+                    if (k < ValueCount && Indices[k] == i)
                     {
-                        values.Add(item);
-                        indices.Add(i);
+                        targetData[i] = f(Values[k], otherData[i]);
+                        k++;
+                    }
+                    else
+                    {
+                        targetData[i] = f(Zero, otherData[i]);
                     }
                 }
+
+                return;
             }
-            else
+
+            var sparseOther = other as SparseVectorStorage<T>;
+            if (sparseOther != null && denseTarget != null)
             {
-                for (int i = 0; i < ValueCount; i++)
+                T[] targetData = denseTarget.Data;
+                int[] otherIndices = sparseOther.Indices;
+                T[] otherValues = sparseOther.Values;
+                int otherValueCount = sparseOther.ValueCount;
+
+                if (processZeros)
                 {
-                    var item = f(Indices[i], Values[i]);
-                    if (!Zero.Equals(item))
+                    int p = 0, q = 0;
+                    for (int i = 0; i < targetData.Length; i++)
                     {
-                        values.Add(item);
-                        indices.Add(Indices[i]);
+                        var left = p < ValueCount && Indices[p] == i ? Values[p++] : Zero;
+                        var right = q < otherValueCount && otherIndices[q] == i ? otherValues[q++] : Zero;
+                        targetData[i] = f(left, right);
                     }
                 }
+                else
+                {
+                    if (existingData == ExistingData.Clear)
+                    {
+                        denseTarget.Clear();
+                    }
+
+                    int p = 0, q = 0;
+                    while (p < ValueCount || q < otherValueCount)
+                    {
+                        if (q >= otherValueCount || p < ValueCount && Indices[p] < otherIndices[q])
+                        {
+                            targetData[Indices[p]] = f(Values[p], Zero);
+                            p++;
+                        }
+                        else if (p >= ValueCount || q < otherValueCount && Indices[p] > otherIndices[q])
+                        {
+                            targetData[otherIndices[q]] = f(Zero, otherValues[q]);
+                            q++;
+                        }
+                        else
+                        {
+                            Debug.Assert(Indices[p] == otherIndices[q]);
+                            targetData[Indices[p]] = f(Values[p], otherValues[q]);
+                            p++;
+                            q++;
+                        }
+                    }
+                }
+
+                return;
             }
-            Indices = indices.ToArray();
-            Values = values.ToArray();
-            ValueCount = values.Count;
+
+            var sparseTarget = target as SparseVectorStorage<T>;
+            if (sparseOther != null && sparseTarget != null)
+            {
+                var indices = new List<int>();
+                var values = new List<T>();
+                int[] otherIndices = sparseOther.Indices;
+                T[] otherValues = sparseOther.Values;
+                int otherValueCount = sparseOther.ValueCount;
+
+                int p = 0, q = 0;
+                while (p < ValueCount || q < otherValueCount)
+                {
+                    if (q >= otherValueCount || p < ValueCount && Indices[p] < otherIndices[q])
+                    {
+                        var value = f(Values[p], Zero);
+                        if (!Zero.Equals(value))
+                        {
+                            indices.Add(Indices[p]);
+                            values.Add(value);
+                        }
+
+                        p++;
+                    }
+                    else if (p >= ValueCount || q < otherValueCount && Indices[p] > otherIndices[q])
+                    {
+                        var value = f(Zero, otherValues[q]);
+                        if (!Zero.Equals(value))
+                        {
+                            indices.Add(otherIndices[q]);
+                            values.Add(value);
+                        }
+
+                        q++;
+                    }
+                    else
+                    {
+                        var value = f(Values[p], otherValues[q]);
+                        if (!Zero.Equals(value))
+                        {
+                            indices.Add(Indices[p]);
+                            values.Add(value);
+                        }
+
+                        p++;
+                        q++;
+                    }
+                }
+
+                sparseTarget.Indices = indices.ToArray();
+                sparseTarget.Values = values.ToArray();
+                sparseTarget.ValueCount = values.Count;
+                return;
+            }
+
+            // FALL BACK
+
+            base.Map2ToUnchecked(target, other, f, zeros, existingData);
+        }
+
+        internal override TState Fold2Unchecked<TOther, TState>(VectorStorage<TOther> other, Func<TState, T, TOther, TState> f, TState state, Zeros zeros = Zeros.AllowSkip)
+        {
+            var sparseOther = other as SparseVectorStorage<TOther>;
+            if (sparseOther != null)
+            {
+                int[] otherIndices = sparseOther.Indices;
+                TOther[] otherValues = sparseOther.Values;
+                int otherValueCount = sparseOther.ValueCount;
+                TOther otherZero = BuilderInstance<TOther>.Vector.Zero;
+
+                if (zeros == Zeros.Include)
+                {
+                    int p = 0, q = 0;
+                    for (int i = 0; i < Length; i++)
+                    {
+                        var left = p < ValueCount && Indices[p] == i ? Values[p++] : Zero;
+                        var right = q < otherValueCount && otherIndices[q] == i ? otherValues[q++] : otherZero;
+                        state = f(state, left, right);
+                    }
+                }
+                else
+                {
+                    int p = 0, q = 0;
+                    while (p < ValueCount || q < otherValueCount)
+                    {
+                        if (q >= otherValueCount || p < ValueCount && Indices[p] < otherIndices[q])
+                        {
+                            state = f(state, Values[p], otherZero);
+                            p++;
+                        }
+                        else if (p >= ValueCount || q < otherValueCount && Indices[p] > otherIndices[q])
+                        {
+                            state = f(state, Zero, otherValues[q]);
+                            q++;
+                        }
+                        else
+                        {
+                            Debug.Assert(Indices[p] == otherIndices[q]);
+                            state = f(state, Values[p], otherValues[q]);
+                            p++;
+                            q++;
+                        }
+                    }
+                }
+
+                return state;
+            }
+
+            var denseOther = other as DenseVectorStorage<TOther>;
+            if (denseOther != null)
+            {
+                TOther[] otherData = denseOther.Data;
+
+                int k = 0;
+                for (int i = 0; i < otherData.Length; i++)
+                {
+                    if (k < ValueCount && Indices[k] == i)
+                    {
+                        state = f(state, Values[k], otherData[i]);
+                        k++;
+                    }
+                    else
+                    {
+                        state = f(state, Zero, otherData[i]);
+                    }
+                }
+
+                return state;
+            }
+
+            return base.Fold2Unchecked(other, f, state, zeros);
         }
     }
 }

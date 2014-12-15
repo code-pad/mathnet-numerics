@@ -76,43 +76,23 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
             }
             else if (alpha == 1.0)
             {
-                if (Control.ParallelizeOperation(x.Length))
+                CommonParallel.For(0, y.Length, 4096, (a, b) =>
                 {
-                    CommonParallel.For(0, y.Length, 4096, (a, b) =>
-                        {
-                            for (int i = a; i < b; i++)
-                            {
-                                result[i] = y[i] + x[i];
-                            }
-                        });
-                }
-                else
-                {
-                    for (var index = 0; index < x.Length; index++)
+                    for (int i = a; i < b; i++)
                     {
-                        result[index] = y[index] + x[index];
+                        result[i] = y[i] + x[i];
                     }
-                }
+                });
             }
             else
             {
-                if (Control.ParallelizeOperation(x.Length))
+                CommonParallel.For(0, y.Length, 4096, (a, b) =>
                 {
-                    CommonParallel.For(0, y.Length, 4096, (a, b) =>
-                        {
-                            for (int i = a; i < b; i++)
-                            {
-                                result[i] = y[i] + (alpha*x[i]);
-                            }
-                        });
-                }
-                else
-                {
-                    for (var index = 0; index < x.Length; index++)
+                    for (int i = a; i < b; i++)
                     {
-                        result[index] = y[index] + (alpha*x[index]);
+                        result[i] = y[i] + (alpha * x[i]);
                     }
-                }
+                });
             }
         }
 
@@ -140,23 +120,13 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
             }
             else
             {
-                if (Control.ParallelizeOperation(x.Length))
+                CommonParallel.For(0, x.Length, 4096, (a, b) =>
                 {
-                    CommonParallel.For(0, x.Length, 4096, (a, b) =>
-                        {
-                            for (int i = a; i < b; i++)
-                            {
-                                result[i] = alpha*x[i];
-                            }
-                        });
-                }
-                else
-                {
-                    for (var index = 0; index < x.Length; index++)
+                    for (int i = a; i < b; i++)
                     {
-                        result[index] = alpha*x[index];
+                        result[i] = alpha * x[i];
                     }
-                }
+                });
             }
         }
 
@@ -244,23 +214,13 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
                 throw new ArgumentException(Resources.ArgumentVectorsSameLength);
             }
 
-            if (Control.ParallelizeOperation(x.Length))
+            CommonParallel.For(0, y.Length, 4096, (a, b) =>
             {
-                CommonParallel.For(0, y.Length, 4096, (a, b) =>
-                    {
-                        for (int i = a; i < b; i++)
-                        {
-                            result[i] = x[i] + y[i];
-                        }
-                    });
-            }
-            else
-            {
-                for (var index = 0; index < x.Length; index++)
+                for (int i = a; i < b; i++)
                 {
-                    result[index] = x[index] + y[index];
+                    result[i] = x[i] + y[i];
                 }
-            }
+            });
         }
 
         /// <summary>
@@ -295,23 +255,13 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
                 throw new ArgumentException(Resources.ArgumentVectorsSameLength);
             }
 
-            if (Control.ParallelizeOperation(x.Length))
+            CommonParallel.For(0, y.Length, 4096, (a, b) =>
             {
-                CommonParallel.For(0, y.Length, 4096, (a, b) =>
-                    {
-                        for (int i = a; i < b; i++)
-                        {
-                            result[i] = x[i] - y[i];
-                        }
-                    });
-            }
-            else
-            {
-                for (var index = 0; index < x.Length; index++)
+                for (int i = a; i < b; i++)
                 {
-                    result[index] = x[index] - y[index];
+                    result[i] = x[i] - y[i];
                 }
-            }
+            });
         }
 
         /// <summary>
@@ -346,23 +296,13 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
                 throw new ArgumentException(Resources.ArgumentVectorsSameLength);
             }
 
-            if (Control.ParallelizeOperation(x.Length))
+            CommonParallel.For(0, y.Length, 4096, (a, b) =>
             {
-                CommonParallel.For(0, y.Length, 4096, (a, b) =>
-                    {
-                        for (int i = a; i < b; i++)
-                        {
-                            result[i] = x[i]*y[i];
-                        }
-                    });
-            }
-            else
-            {
-                for (var index = 0; index < x.Length; index++)
+                for (int i = a; i < b; i++)
                 {
-                    result[index] = x[index]*y[index];
+                    result[i] = x[i] * y[i];
                 }
-            }
+            });
         }
 
         /// <summary>
@@ -397,23 +337,13 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
                 throw new ArgumentException(Resources.ArgumentVectorsSameLength);
             }
 
-            if (Control.ParallelizeOperation(x.Length))
+            CommonParallel.For(0, y.Length, 4096, (a, b) =>
             {
-                CommonParallel.For(0, y.Length, 4096, (a, b) =>
-                    {
-                        for (int i = a; i < b; i++)
-                        {
-                            result[i] = x[i]/y[i];
-                        }
-                    });
-            }
-            else
-            {
-                for (var index = 0; index < x.Length; index++)
+                for (int i = a; i < b; i++)
                 {
-                    result[index] = x[index]/y[index];
+                    result[i] = x[i] / y[i];
                 }
-            }
+            });
         }
 
         /// <summary>
@@ -558,7 +488,9 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
                 ydata = y;
             }
 
-            MatrixMultiplyWithUpdate(Transpose.DontTranspose, Transpose.DontTranspose, 1.0f, xdata, rowsX, columnsX, ydata, rowsY, columnsY, 0.0f, result);
+            Array.Clear(result, 0, result.Length);
+
+            CacheObliviousMatrixMultiply(Transpose.DontTranspose, Transpose.DontTranspose, 1.0f, xdata, 0, 0, ydata, 0, 0, result, 0, 0, rowsX, columnsY, columnsX, rowsX, columnsY, columnsX, true);
         }
 
         /// <summary>
@@ -692,7 +624,7 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
             }
             else if (beta != 1.0f)
             {
-                Control.LinearAlgebraProvider.ScaleArray(beta, c, c);
+                ScaleArray(beta, c, c);
             }
 
             if (alpha == 0.0f)
@@ -1218,7 +1150,7 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
                     }
 
                     // Remaining columns, below the diagonal
-                    DoCholeskyStep(a, order, ij + 1, order, tmpColumn, Control.NumberOfParallelWorkerThreads);
+                    DoCholeskyStep(a, order, ij + 1, order, tmpColumn, Control.MaxDegreeOfParallelism);
                 }
                 else
                 {
@@ -1499,12 +1431,12 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
             for (var i = 0; i < minmn; i++)
             {
                 GenerateColumn(work, r, rowsR, i, i);
-                ComputeQR(work, i, r, i, rowsR, i + 1, columnsR, Control.NumberOfParallelWorkerThreads);
+                ComputeQR(work, i, r, i, rowsR, i + 1, columnsR, Control.MaxDegreeOfParallelism);
             }
 
             for (var i = minmn - 1; i >= 0; i--)
             {
-                ComputeQR(work, i, q, i, rowsR, i, rowsR, Control.NumberOfParallelWorkerThreads);
+                ComputeQR(work, i, q, i, rowsR, i, rowsR, Control.MaxDegreeOfParallelism);
             }
 
             work[0] = columnsR > rowsR ? rowsR*rowsR : rowsR*columnsR;
@@ -1610,7 +1542,7 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
             for (var i = 0; i < minmn; i++)
             {
                 GenerateColumn(work, a, rowsA, i, i);
-                ComputeQR(work, i, a, i, rowsA, i + 1, columnsA, Control.NumberOfParallelWorkerThreads);
+                ComputeQR(work, i, a, i, rowsA, i + 1, columnsA, Control.MaxDegreeOfParallelism);
             }
 
             //copy R
@@ -1633,7 +1565,7 @@ namespace MathNet.Numerics.Providers.LinearAlgebra
 
             for (var i = minmn - 1; i >= 0; i--)
             {
-                ComputeQR(work, i, a, i, rowsA, i, columnsA, Control.NumberOfParallelWorkerThreads);
+                ComputeQR(work, i, a, i, rowsA, i, columnsA, Control.MaxDegreeOfParallelism);
             }
 
             work[0] = rowsA*columnsA;

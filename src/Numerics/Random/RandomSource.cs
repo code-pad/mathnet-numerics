@@ -140,7 +140,7 @@ namespace MathNet.Numerics.Random
         {
             if (maxValue <= 0)
             {
-                throw new ArgumentOutOfRangeException(Resources.ArgumentMustBePositive);
+                throw new ArgumentException(Resources.ArgumentMustBePositive);
             }
 
             if (_threadSafe)
@@ -167,7 +167,7 @@ namespace MathNet.Numerics.Random
         {
             if (minValue > maxValue)
             {
-                throw new ArgumentOutOfRangeException(Resources.ArgumentMinValueGreaterThanMaxValue);
+                throw new ArgumentException(Resources.ArgumentMinValueGreaterThanMaxValue);
             }
 
             if (_threadSafe)
@@ -179,6 +179,56 @@ namespace MathNet.Numerics.Random
             }
 
             return (int)(DoSample()*(maxValue - minValue)) + minValue;
+        }
+
+        /// <summary>
+        /// Fills an array with random numbers within a specified range.
+        /// </summary>
+        /// <param name="values">The array to fill with random values.</param>
+        /// <param name="minValue">The inclusive lower bound of the random number returned.</param>
+        /// <param name="maxValue">The exclusive upper bound of the random number returned. <paramref name="maxValue"/> must be greater than or equal to <paramref name="minValue"/>.</param>
+        public void NextInt32s(int[] values, int minValue, int maxValue)
+        {
+            if (_threadSafe)
+            {
+                lock (_lock)
+                {
+                    for (var i = 0; i < values.Length; i++)
+                    {
+                        values[i] = (int)(DoSample()*(maxValue - minValue)) + minValue;
+                    }
+                }
+            }
+            else
+            {
+                for (var i = 0; i < values.Length; i++)
+                {
+                    values[i] = (int)(DoSample()*(maxValue - minValue)) + minValue;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns an infinite sequence of random numbers within a specified range.
+        /// </summary>
+        /// <param name="minValue">The inclusive lower bound of the random number returned.</param>
+        /// <param name="maxValue">The exclusive upper bound of the random number returned. <paramref name="maxValue"/> must be greater than or equal to <paramref name="minValue"/>.</param>
+        public IEnumerable<int> NextInt32Sequence(int minValue, int maxValue)
+        {
+            for (int i = 0; i < 64; i++)
+            {
+                yield return Next(minValue, maxValue);
+            }
+
+            var buffer = new int[64];
+            while (true)
+            {
+                NextInt32s(buffer, minValue, maxValue);
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    yield return buffer[i];
+                }
+            }
         }
 
         /// <summary>
@@ -202,6 +252,7 @@ namespace MathNet.Numerics.Random
                         buffer[i] = (byte)(((int)(DoSample()*int.MaxValue))%256);
                     }
                 }
+
                 return;
             }
 
